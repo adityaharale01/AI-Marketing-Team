@@ -16,7 +16,13 @@ class Product(Base):
     price = Column(Float, nullable=False)
 
     stock = Column(Integer, default=0)
+    business_id = Column(
+        Integer,
+        ForeignKey("businesses.id", ondelete="CASCADE"),
+        nullable=False
+    )
 
-    business_id = Column(Integer, ForeignKey("businesses.id"))
-
-    business = relationship("Business", back_populates="products")
+    business = relationship(
+        "Business",
+        back_populates="products"
+    )

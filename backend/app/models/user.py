@@ -20,4 +20,8 @@ class User(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    businesses = relationship("Business", back_populates="owner")
+    businesses = relationship(
+    "Business",
+    back_populates="owner",
+    cascade="all, delete-orphan"
+)

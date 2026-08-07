@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from sqlalchemy import text
-
+from app.routers import business
 from app.database import engine, Base
 from app.routers.auth import router as auth_router
 # Import all models
@@ -14,6 +14,7 @@ app = FastAPI(
 )
 app.include_router(auth_router)
 app.include_router(user_router)
+app.include_router(business.router)
 @app.get("/")
 def home():
     return {
