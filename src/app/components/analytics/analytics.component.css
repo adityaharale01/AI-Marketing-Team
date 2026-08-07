@@ -1,0 +1,81 @@
+.analytics-wrapper {
+  background-color: var(--bg-primary);
+  min-height: calc(100vh - 80px);
+}
+
+.stat-card {
+  background-color: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  transition: var(--transition-smooth);
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(46, 38, 32, 0.05);
+}
+
+/* Light icon backgrounds matching the theme */
+.bg-light-clay { background-color: rgba(163, 124, 93, 0.1) !important; }
+.bg-light-terracotta { background-color: rgba(201, 91, 50, 0.1) !important; }
+.bg-light-amber { background-color: rgba(223, 168, 74, 0.1) !important; }
+.bg-light-sage { background-color: rgba(114, 139, 116, 0.1) !important; }
+.bg-light-success { background-color: rgba(40, 167, 69, 0.1) !important; }
+
+.text-clay { color: var(--accent-clay) !important; }
+.text-terracotta { color: var(--accent-terracotta) !important; }
+.text-amber { color: var(--accent-amber) !important; }
+.text-sage { color: var(--accent-sage) !important; }
+
+/* Chart canvas dimensions */
+.chart-container {
+  position: relative;
+  height: 350px;
+  width: 100%;
+}
+
+.chart-container-small {
+  position: relative;
+  height: 220px;
+  width: 100%;
+}
+
+/* Campaign Select Cards */
+.campaign-select-row {
+  background-color: #ffffff;
+  border-color: var(--border-color) !important;
+  transition: var(--transition-smooth);
+}
+
+.campaign-select-row:hover {
+  border-color: var(--accent-terracotta) !important;
+  transform: translateX(3px);
+}
+
+.campaign-select-row.selected-campaign {
+  border-color: var(--accent-terracotta) !important;
+  background-color: rgba(201, 91, 50, 0.02);
+  box-shadow: 0 4px 15px rgba(201, 91, 50, 0.05);
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.small-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.max-width-200 {
+  max-width: 200px;
+}
+
+.bg-light-terracotta {
+  background-color: var(--accent-terracotta-muted);
+}
+
+.bg-light-sage {
+  background-color: var(--accent-sage-muted);
+}

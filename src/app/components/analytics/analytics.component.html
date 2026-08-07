@@ -1,0 +1,161 @@
+<div class="analytics-wrapper py-4">
+  <div class="container-fluid px-lg-5">
+    
+    <!-- Header Area -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+      <div>
+        <h2 class="fw-bold m-0 h3">Campaign Intelligence Dashboard</h2>
+        <p class="text-muted small mb-0">Track ROI forecasting, channel budget weighting, and agent contribution logs.</p>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <div class="selected-campaign-badge px-3 py-2 rounded bg-secondary-custom d-flex align-items-center gap-2" *ngIf="selectedCampaign">
+          <span class="material-icons text-terracotta fs-5">campaign</span>
+          <span class="small fw-bold text-secondary">Spotlight: {{ selectedCampaign.title }}</span>
+        </div>
+        <button class="btn premium-btn-secondary py-2 px-3 btn-sm d-flex align-items-center gap-2" (click)="exportPDF()">
+          <span class="material-icons fs-6">download</span>
+          <span class="small">Export PDF</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats Summary Row -->
+    <div class="row g-3 mb-4">
+      <div class="col-md col-6">
+        <div class="stat-card p-3 shadow-sm">
+          <div class="d-flex align-items-center justify-content-between">
+            <span class="material-icons text-clay bg-light-clay p-2 rounded-circle fs-5">visibility</span>
+            <span class="badge bg-secondary text-dark small px-2 py-1">Overall</span>
+          </div>
+          <h3 class="fw-bold mt-3 mb-1">{{ totalImpressions | number }}</h3>
+          <small class="text-muted text-uppercase tracking-wider fs-7">Impressions</small>
+        </div>
+      </div>
+      
+      <div class="col-md col-6">
+        <div class="stat-card p-3 shadow-sm">
+          <div class="d-flex align-items-center justify-content-between">
+            <span class="material-icons text-amber bg-light-amber p-2 rounded-circle fs-5">touch_app</span>
+            <span class="badge bg-secondary text-dark small px-2 py-1">Clicks</span>
+          </div>
+          <h3 class="fw-bold mt-3 mb-1">{{ totalClicks | number }}</h3>
+          <small class="text-muted text-uppercase tracking-wider fs-7">Clicks</small>
+        </div>
+      </div>
+
+      <div class="col-md col-6">
+        <div class="stat-card p-3 shadow-sm">
+          <div class="d-flex align-items-center justify-content-between">
+            <span class="material-icons text-terracotta bg-light-terracotta p-2 rounded-circle fs-5">shopping_bag</span>
+            <span class="badge bg-success text-white small px-2 py-1">Conversions</span>
+          </div>
+          <h3 class="fw-bold mt-3 mb-1">{{ totalConversions | number }}</h3>
+          <small class="text-muted text-uppercase tracking-wider fs-7">Conversions</small>
+        </div>
+      </div>
+
+      <div class="col-md col-6">
+        <div class="stat-card p-3 shadow-sm">
+          <div class="d-flex align-items-center justify-content-between">
+            <span class="material-icons text-sage bg-light-sage p-2 rounded-circle fs-5">percent</span>
+            <span class="badge bg-light text-muted small px-2 py-1">Avg</span>
+          </div>
+          <h3 class="fw-bold mt-3 mb-1">{{ averageCtr }}%</h3>
+          <small class="text-muted text-uppercase tracking-wider fs-7">CTR</small>
+        </div>
+      </div>
+
+      <div class="col-md col-12">
+        <div class="stat-card p-3 shadow-sm">
+          <div class="d-flex align-items-center justify-content-between">
+            <span class="material-icons text-success bg-light-success p-2 rounded-circle fs-5">trending_up</span>
+            <span class="badge bg-light-terracotta text-terracotta small px-2 py-1 fw-bold">ROI</span>
+          </div>
+          <h3 class="fw-bold mt-3 mb-1">+{{ averageRoi }}%</h3>
+          <small class="text-muted text-uppercase tracking-wider fs-7">Avg Returns</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts and Table Grid -->
+    <div class="row g-4">
+      <!-- Left side: Visual Charts -->
+      <div class="col-lg-8">
+        <!-- Top Chart: Conversion Trends -->
+        <div class="premium-card p-4 mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="fw-bold m-0 fs-5">Weekly Performance Trends</h4>
+            <small class="text-muted">Conversions vs Clicks</small>
+          </div>
+          <div class="chart-container">
+            <canvas #trendChart></canvas>
+          </div>
+        </div>
+
+        <div class="row g-4">
+          <!-- Budget distribution -->
+          <div class="col-md-6">
+            <div class="premium-card p-4 h-100">
+              <h4 class="fw-bold mb-3 fs-5">Budget Allocation By Channel</h4>
+              <div class="chart-container-small">
+                <canvas #mediumChart></canvas>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Agent task contribution -->
+          <div class="col-md-6">
+            <div class="premium-card p-4 h-100">
+              <h4 class="fw-bold mb-3 fs-5">Agent Task Execution Logs</h4>
+              <div class="chart-container-small">
+                <canvas #contributeChart></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right side: Active campaigns selector table -->
+      <div class="col-lg-4">
+        <div class="premium-card h-100 p-4">
+          <h4 class="fw-bold mb-3 fs-5">Campaign Inventory</h4>
+          <p class="text-muted small mb-4">Select a campaign below to focus the analytics filters and update charts in real-time.</p>
+
+          <div class="d-flex flex-column gap-3">
+            <div class="campaign-select-row p-3 shadow-sm rounded border cursor-pointer"
+                 *ngFor="let camp of campaigns"
+                 [class.selected-campaign]="selectedCampaign?.id === camp.id"
+                 (click)="selectCampaign(camp)">
+              
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <h6 class="fw-bold m-0 text-truncate max-width-200">{{ camp.title }}</h6>
+                <span class="badge-pill-custom text-uppercase tracking-wider fw-bold py-1 px-2"
+                      [ngClass]="{
+                        'bg-light-terracotta text-terracotta': camp.status === 'Active',
+                        'bg-light-sage text-sage': camp.status === 'Completed',
+                        'bg-light-clay text-clay': camp.status === 'Draft'
+                      }">
+                  {{ camp.status }}
+                </span>
+              </div>
+
+              <div class="row g-2 border-top pt-2 mt-2">
+                <div class="col-6">
+                  <span class="text-muted d-block small-label">Budget</span>
+                  <span class="fw-bold fs-7 text-dark">${{ camp.budget | number }}</span>
+                </div>
+                <div class="col-6 text-end">
+                  <span class="text-muted d-block small-label">ROI</span>
+                  <span class="fw-bold fs-7" [ngClass]="camp.metrics.roi > 0 ? 'text-success' : 'text-muted'">
+                    {{ camp.metrics.roi > 0 ? '+' + camp.metrics.roi + '%' : 'N/A' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

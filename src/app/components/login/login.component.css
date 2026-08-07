@@ -1,0 +1,77 @@
+.login-container {
+  min-height: calc(100vh - 80px);
+  background-color: var(--bg-primary);
+  font-family: var(--font-sans);
+}
+
+.login-card {
+  border: 1px solid var(--border-color);
+  box-shadow: 0 15px 45px rgba(46, 38, 32, 0.08);
+  border-radius: 24px;
+  background-color: #ffffff;
+}
+
+.login-info-panel {
+  background: linear-gradient(135deg, var(--accent-terracotta) 0%, var(--accent-clay) 100%);
+  min-height: 480px;
+}
+
+.text-terracotta {
+  color: var(--accent-terracotta);
+}
+
+.text-terracotta:hover {
+  color: var(--accent-terracotta-hover);
+}
+
+.text-amber {
+  color: var(--accent-amber);
+}
+
+.agent-avatar-mini {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.agent-avatar-mini:hover {
+  transform: translateY(-3px);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Individual agent borders on login panel */
+.cmo-border { border-color: var(--accent-terracotta) !important; }
+.seo-border { border-color: var(--accent-sage) !important; }
+.copy-border { border-color: var(--accent-amber) !important; }
+.design-border { border-color: var(--accent-clay) !important; }
+.analyst-border { border-color: var(--text-secondary) !important; }
+
+.demo-divider hr {
+  border-color: var(--border-color);
+  opacity: 1;
+}
+
+.btn-outline-demo {
+  color: var(--text-primary);
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  transition: var(--transition-smooth);
+}
+
+.btn-outline-demo:hover {
+  background-color: var(--bg-secondary);
+  border-color: var(--accent-clay);
+  color: var(--text-primary);
+}
+
+.btn-outline-demo span {
+  color: var(--accent-terracotta);
+}

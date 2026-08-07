@@ -1,0 +1,108 @@
+<div class="login-container d-flex align-items-center justify-content-center">
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-lg-10">
+        <div class="login-card overflow-hidden">
+          <div class="row g-0">
+            <!-- Left Info Panel (Terracotta theme) -->
+            <div class="col-md-6 d-none d-md-flex login-info-panel flex-column justify-content-between p-5 text-white">
+              <div>
+                <div class="logo-area d-flex align-items-center mb-4">
+                  <span class="material-icons me-2 fs-2 text-amber">hub</span>
+                  <span class="logo-text fw-bold fs-4">Aether AI</span>
+                </div>
+                <h2 class="display-6 fw-bold mb-3 text-white">Scale your business with a coordinated team.</h2>
+                <p class="text-white-50">
+                  Deploy a coordinated multi-agent AI squad working dynamically across SEO, content, design, and forecasting to scale conversions.
+                </p>
+              </div>
+              <div class="agent-icons-row d-flex gap-3">
+                <div class="agent-avatar-mini cmo-border" title="CMO Agent">
+                  <span class="material-icons text-white fs-6">insights</span>
+                </div>
+                <div class="agent-avatar-mini seo-border" title="SEO Agent">
+                  <span class="material-icons text-white fs-6">travel_explore</span>
+                </div>
+                <div class="agent-avatar-mini copy-border" title="Copywriter Agent">
+                  <span class="material-icons text-white fs-6">border_color</span>
+                </div>
+                <div class="agent-avatar-mini design-border" title="UI Designer Agent">
+                  <span class="material-icons text-white fs-6">palette</span>
+                </div>
+                <div class="agent-avatar-mini analyst-border" title="Analyst Agent">
+                  <span class="material-icons text-white fs-6">bar_chart</span>
+                </div>
+              </div>
+              <div class="footer-note">
+                <small class="text-white-50">&copy; 2026 Aether Multi-Agent Platforms.</small>
+              </div>
+            </div>
+
+            <!-- Right Login Form -->
+            <div class="col-md-6 p-4 p-lg-5 bg-white">
+              <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3 class="fw-bold m-0">Sign In</h3>
+                <a routerLink="/" class="text-decoration-none text-terracotta d-flex align-items-center">
+                  <span class="material-icons fs-5 me-1">arrow_back</span> Back
+                </a>
+              </div>
+              
+              <p class="text-muted mb-4 small">
+                Access your secure multi-agent control center. Use your marketing manager credentials or the quick demo accounts.
+              </p>
+
+              <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="mt-2">
+                <div class="mb-3">
+                  <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Email Address</mat-label>
+                    <input matInput type="email" formControlName="email" placeholder="e.g. cmo@aimarketing.com">
+                    <mat-icon matSuffix class="text-muted">mail_outline</mat-icon>
+                    <mat-error *ngIf="loginForm.get('email')?.hasError('required')">Email is required</mat-error>
+                    <mat-error *ngIf="loginForm.get('email')?.hasError('email')">Please enter a valid email</mat-error>
+                  </mat-form-field>
+                </div>
+
+                <div class="mb-4">
+                  <mat-form-field appearance="outline" class="w-100">
+                    <mat-label>Password</mat-label>
+                    <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password">
+                    <button type="button" matSuffix mat-icon-button (click)="hidePassword = !hidePassword" [attr.aria-label]="'Hide password'" [attr.aria-pressed]="hidePassword">
+                      <mat-icon class="text-muted">{{hidePassword ? 'visibility_off' : 'visibility'}}</mat-icon>
+                    </button>
+                    <mat-error *ngIf="loginForm.get('password')?.hasError('required')">Password is required</mat-error>
+                    <mat-error *ngIf="loginForm.get('password')?.hasError('minlength')">Password must be at least 6 characters</mat-error>
+                  </mat-form-field>
+                </div>
+
+                <button mat-flat-button color="primary" type="submit" class="w-100 py-3 rounded-pill" [disabled]="isLoading">
+                  <div class="d-flex align-items-center justify-content-center">
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" *ngIf="isLoading"></span>
+                    <span>{{ isLoading ? 'Authenticating...' : 'Access Workspace' }}</span>
+                  </div>
+                </button>
+              </form>
+
+              <div class="demo-divider my-4 text-center position-relative">
+                <span class="bg-white px-2 text-muted small position-relative z-1">Quick Demo Accounts</span>
+                <hr class="w-100 position-absolute top-50 start-0 m-0">
+              </div>
+
+              <div class="row g-2">
+                <div class="col-6">
+                  <button type="button" class="btn btn-outline-demo w-100 btn-sm py-2 text-nowrap" (click)="fillDemoCredentials('admin')">
+                    <span class="material-icons fs-6 me-1 align-middle">admin_panel_settings</span> CMO Admin
+                  </button>
+                </div>
+                <div class="col-6">
+                  <button type="button" class="btn btn-outline-demo w-100 btn-sm py-2 text-nowrap" (click)="fillDemoCredentials('manager')">
+                    <span class="material-icons fs-6 me-1 align-middle">badge</span> Manager
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

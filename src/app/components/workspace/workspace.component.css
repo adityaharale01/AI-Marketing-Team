@@ -1,0 +1,211 @@
+.workspace-wrapper {
+  background-color: var(--bg-primary);
+  min-height: calc(100vh - 80px);
+}
+
+.agent-status-card {
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-bottom: 4px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: var(--card-shadow);
+  transition: var(--transition-smooth);
+}
+
+.agent-status-card.active-working {
+  transform: translateY(-2px);
+  box-shadow: var(--card-shadow-hover);
+}
+
+.agent-avatar-status {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  padding: 2px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.agent-avatar-status img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-text {
+  font-size: 0.65rem;
+  letter-spacing: 0.5px;
+}
+
+.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pulse-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: pulse-glow 1.5s infinite;
+}
+
+@keyframes pulse-glow {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.4); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.6; }
+}
+
+/* Range input slider styling */
+.custom-range::-webkit-slider-thumb {
+  background: var(--accent-terracotta);
+}
+.custom-range::-moz-range-thumb {
+  background: var(--accent-terracotta);
+}
+
+/* Console logs */
+.console-card {
+  background-color: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  height: 600px;
+  overflow: hidden;
+}
+
+.console-header {
+  background-color: #faf8f5;
+}
+
+.terminal-dots span {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+.terminal-dots span:nth-child(1) { background-color: #c95b32; }
+.terminal-dots span:nth-child(2) { background-color: #dfa84a; }
+.terminal-dots span:nth-child(3) { background-color: #728b74; }
+
+.terminal-title {
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+
+.console-progress-bar {
+  height: 3px !important;
+  background-color: var(--bg-secondary) !important;
+}
+.console-progress-bar ::ng-deep .mdc-linear-progress__bar-inner {
+  border-color: var(--accent-terracotta) !important;
+}
+
+.console-body {
+  overflow-y: auto;
+  background-color: #fbf9f6;
+  border-radius: 0 0 20px 20px;
+}
+
+.chat-message-bubble {
+  animation: slide-up 0.4s ease-out;
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.message-sender-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.message-sender-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.sender-name {
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+}
+
+.message-content {
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  border-top-left-radius: 2px;
+  padding: 14px 18px;
+  box-shadow: 0 2px 8px rgba(46, 38, 32, 0.02);
+}
+
+.whitespace-pre-wrap {
+  white-space: pre-wrap;
+}
+
+.whitespace-pre-line {
+  white-space: pre-line;
+}
+
+/* Asset attachments inside messages */
+.asset-card {
+  background: #fdfdfd;
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+}
+
+.asset-card h6 {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.btn-outline-quick {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  transition: var(--transition-smooth);
+}
+
+.btn-outline-quick:hover {
+  background-color: var(--bg-secondary);
+  border-color: var(--accent-clay);
+  color: var(--text-primary);
+}
+
+.pulse-slow {
+  animation: pulse-slow-anim 2s infinite;
+}
+
+@keyframes pulse-slow-anim {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+
+.fs-7 {
+  font-size: 0.8rem;
+}

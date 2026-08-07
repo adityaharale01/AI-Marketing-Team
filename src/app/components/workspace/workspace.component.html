@@ -1,0 +1,184 @@
+<div class="workspace-wrapper py-4">
+  <div class="container-fluid px-lg-5">
+    
+    <!-- Top Row: Agent Team Status Panel -->
+    <div class="row g-3 mb-4">
+      <div class="col" *ngFor="let agent of agents">
+        <div class="agent-status-card p-3 d-flex align-items-center position-relative overflow-hidden" 
+             [class.active-working]="agent.status !== 'Idle'"
+             [style.border-bottom-color]="agent.color">
+          
+          <div class="pulse-indicator" *ngIf="agent.status !== 'Idle'" [style.background-color]="agent.color"></div>
+          
+          <div class="agent-avatar-status me-3" [style.border-color]="agent.color">
+            <img [src]="agent.avatar" [alt]="agent.name">
+          </div>
+          <div class="flex-grow-1 min-width-0">
+            <h6 class="m-0 fw-bold truncate">{{ agent.name }}</h6>
+            <small class="text-muted d-block truncate">{{ agent.role }}</small>
+            
+            <div class="d-flex align-items-center mt-1">
+              <span class="status-dot me-1" 
+                    [ngClass]="{
+                      'bg-success': agent.status === 'Idle',
+                      'bg-warning': agent.status === 'Thinking',
+                      'bg-danger': agent.status === 'Working' || agent.status === 'Reviewing'
+                    }"></span>
+              <span class="status-text fw-bold text-uppercase" [style.color]="agent.status === 'Idle' ? '#728b74' : agent.color">
+                {{ agent.status }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Workspace Grid -->
+    <div class="row g-4">
+      <!-- Left Panel: Brief Submission & Sprint Setup -->
+      <div class="col-lg-4">
+        <div class="premium-card h-100 d-flex flex-column justify-content-between p-4">
+          <div>
+            <div class="d-flex align-items-center mb-3">
+              <span class="material-icons text-terracotta me-2">tune</span>
+              <h3 class="fw-bold m-0 fs-4">Sprint Parameters</h3>
+            </div>
+            <p class="text-muted small mb-4">
+              Submit a target marketing prompt. Our coordinated AI squad will immediately research search intent, formulate copies, structure creative wireframes, and forecast metrics.
+            </p>
+
+            <form (ngSubmit)="submitBrief()" #briefForm="ngForm">
+              <div class="mb-3">
+                <mat-form-field appearance="outline" class="w-100">
+                  <mat-label>Campaign Brief & Goal</mat-label>
+                  <textarea matInput rows="4" name="brief" [(ngModel)]="campaignBrief" 
+                            placeholder="e.g. Organic, eco-friendly bamboo toothbrush launch targeting millennials on Instagram." 
+                            [disabled]="isSimulationRunning" required></textarea>
+                  <mat-hint>Be specific about products, target segments, and platforms.</mat-hint>
+                </mat-form-field>
+              </div>
+
+              <div class="mb-4">
+                <label class="form-label text-secondary fw-semibold small d-flex justify-content-between mb-2">
+                  <span>Sprint Budget Allocation</span>
+                  <span class="text-terracotta fw-bold">${{ campaignBudget | number }}</span>
+                </label>
+                <input type="range" class="form-range custom-range" min="1000" max="50000" step="500" 
+                       name="budget" [(ngModel)]="campaignBudget" [disabled]="isSimulationRunning">
+                <div class="d-flex justify-content-between text-muted small">
+                  <span>$1,000</span>
+                  <span>$50,000</span>
+                </div>
+              </div>
+
+              <button mat-flat-button color="primary" type="submit" class="w-100 py-3 rounded-pill" 
+                      [disabled]="isSimulationRunning || !campaignBrief.trim()">
+                <div class="d-flex align-items-center justify-content-center">
+                  <span class="material-icons me-2">rocket_launch</span>
+                  <span>Initialize AI Sprint</span>
+                </div>
+              </button>
+            </form>
+          </div>
+
+          <!-- Quick Prompts Panel -->
+          <div class="mt-4 pt-4 border-top">
+            <h6 class="fw-bold mb-3 small text-uppercase tracking-wide text-secondary">Demo Brief Suggestions</h6>
+            <div class="d-flex flex-column gap-2">
+              <button class="btn btn-sm btn-outline-quick text-start" 
+                      [disabled]="isSimulationRunning"
+                      (click)="campaignBrief = 'Zero-waste beeswax wrap kitchen rolls subscription.'">
+                🌱 Beeswax Kitchen Wrap subscription
+              </button>
+              <button class="btn btn-sm btn-outline-quick text-start" 
+                      [disabled]="isSimulationRunning"
+                      (click)="campaignBrief = 'No-code API backend builder for enterprise engineering teams.'">
+                💻 SaaS No-Code Backend builder
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Panel: Live Agent Chat Log / Terminal -->
+      <div class="col-lg-8">
+        <div class="console-card d-flex flex-column shadow">
+          <!-- Terminal Header -->
+          <div class="console-header d-flex align-items-center justify-content-between px-4 py-3 border-bottom">
+            <div class="d-flex align-items-center">
+              <div class="terminal-dots me-3">
+                <span></span><span></span><span></span>
+              </div>
+              <span class="terminal-title text-muted fw-bold">multi-agent-orchestrator-console</span>
+            </div>
+            
+            <button mat-icon-button (click)="resetWorkspace()" [disabled]="isSimulationRunning" title="Reset Log">
+              <mat-icon class="text-secondary">delete_sweep</mat-icon>
+            </button>
+          </div>
+
+          <!-- Progress bar for running states -->
+          <mat-progress-bar mode="indeterminate" class="console-progress-bar" *ngIf="isSimulationRunning"></mat-progress-bar>
+
+          <!-- Chat Console Logs -->
+          <div class="console-body p-4 flex-grow-1" #chatScrollContainer>
+            <div class="chat-message-bubble mb-4" *ngFor="let msg of chatLog">
+              <div class="d-flex align-items-start gap-3">
+                <div class="message-sender-avatar" [style.border-color]="msg.sender.color" [style.background-color]="msg.sender.color + '15'">
+                  <img [src]="msg.sender.avatar" [alt]="msg.sender.name">
+                </div>
+                
+                <div class="flex-grow-1">
+                  <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="fw-bold fs-6 sender-name">{{ msg.sender.name }}</span>
+                    <span class="badge-pill-custom py-0 px-2 fw-semibold" 
+                          [style.background-color]="msg.sender.color + '15'" 
+                          [style.color]="msg.sender.color">
+                      {{ msg.sender.role }}
+                    </span>
+                    <span class="message-time text-muted small ms-auto">{{ msg.timestamp | date:'HH:mm:ss' }}</span>
+                  </div>
+                  
+                  <div class="message-content text-secondary">
+                    <p class="mb-0 whitespace-pre-wrap">{{ msg.content }}</p>
+                  </div>
+
+                  <!-- Suggested Campaign Assets Section -->
+                  <div class="msg-assets mt-3" *ngIf="msg.suggestedAssets && msg.suggestedAssets.length > 0">
+                    <div class="asset-card p-3 mb-2" *ngFor="let asset of msg.suggestedAssets">
+                      <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-2">
+                        <div class="d-flex align-items-center gap-2">
+                          <span class="material-icons fs-5 text-clay" *ngIf="asset.type === 'analysis'">insights</span>
+                          <span class="material-icons fs-5 text-terracotta" *ngIf="asset.type === 'plan'">calendar_today</span>
+                          <span class="material-icons fs-5 text-amber" *ngIf="asset.type === 'creative'">auto_stories</span>
+                          <span class="material-icons fs-5 text-sage" *ngIf="asset.type === 'optimization'">published_with_changes</span>
+                          <span class="fw-bold small text-uppercase tracking-wider text-muted">{{ asset.type }} Draft</span>
+                        </div>
+                        <button class="btn btn-link p-0 text-decoration-none text-terracotta fs-7 d-flex align-items-center" 
+                                (click)="copyAssetToClipboard(asset.title, asset.body)">
+                          <span class="material-icons fs-6 me-1">content_copy</span> Copy Draft
+                        </button>
+                      </div>
+                      <h6 class="fw-bold mb-2">{{ asset.title }}</h6>
+                      <p class="small text-secondary mb-0 whitespace-pre-line">{{ asset.body }}</p>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- Typing indicator -->
+            <div class="chat-message-bubble mb-3 typing-container" *ngIf="isSimulationRunning">
+              <div class="d-flex align-items-center gap-3">
+                <span class="material-icons fs-5 text-terracotta animated pulse-slow">hourglass_top</span>
+                <span class="text-muted small italic">Agents coordinate sprint strategy...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

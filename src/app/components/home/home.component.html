@@ -1,0 +1,215 @@
+<!-- Hero Section -->
+<section class="hero-section py-5 d-flex align-items-center">
+  <div class="container py-lg-5">
+    <div class="row align-items-center g-5">
+      <div class="col-lg-6">
+        <div class="badge-pill-custom bg-accent-terracotta-muted text-terracotta d-inline-block mb-3">
+          <span class="material-icons align-middle fs-6 me-1">auto_awesome</span> Multi-Agent Collaborative System
+        </div>
+        <h1 class="display-4 fw-bold mb-4 line-height-sm">
+          Deploy Your Autonomous <br>
+          <span class="premium-gradient-text">AI Marketing Team</span>
+        </h1>
+        <p class="lead mb-4 text-secondary">
+          A premium multi-agent platform for intelligent business growth. Deploy a specialized squad of Business Intelligence, Marketing Planner, Creative Studio, and Optimization Agents working in complete synergy.
+        </p>
+        <div class="d-flex flex-wrap gap-3">
+          <a routerLink="/workspace" class="btn premium-btn-primary px-4 py-3 d-inline-flex align-items-center">
+            Launch Control Center <span class="material-icons ms-2">arrow_forward</span>
+          </a>
+          <a routerLink="/login" class="btn premium-btn-secondary px-4 py-3">
+            Secure Sign-In
+          </a>
+        </div>
+      </div>
+      <div class="col-lg-6 text-center">
+        <!-- Interactive Multi-Agent Ring Visualization -->
+        <div class="agent-network-container position-relative">
+          <div class="network-circle-outline"></div>
+          <div class="network-center-logo shadow">
+            <span class="material-icons fs-1 text-terracotta">hub</span>
+            <small class="d-block fw-bold text-uppercase mt-1" style="font-size: 0.6rem; letter-spacing: 1px;">AETHER</small>
+          </div>
+          
+          <!-- Agent Nodes (4-Agent Diamond Layout) -->
+          <div class="node-agent intel-node shadow" [class.node-active]="selectedAgent?.tag === 'intel'" (click)="selectAgent(agents[0])">
+            <img [src]="agents[0].avatar" alt="BI">
+            <span class="node-label">BI Intel</span>
+          </div>
+          <div class="node-agent planner-node shadow" [class.node-active]="selectedAgent?.tag === 'planner'" (click)="selectAgent(agents[1])">
+            <img [src]="agents[1].avatar" alt="Planner">
+            <span class="node-label">Planner</span>
+          </div>
+          <div class="node-agent creative-node shadow" [class.node-active]="selectedAgent?.tag === 'creative'" (click)="selectAgent(agents[2])">
+            <img [src]="agents[2].avatar" alt="Creative">
+            <span class="node-label">Creative</span>
+          </div>
+          <div class="node-agent optimizer-node shadow" [class.node-active]="selectedAgent?.tag === 'optimizer'" (click)="selectAgent(agents[3])">
+            <img [src]="agents[3].avatar" alt="Optimizer">
+            <span class="node-label">Optimizer</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Interactive Agent Profiles Section -->
+<section class="agents-interactive-section py-5 bg-secondary-custom">
+  <div class="container py-4">
+    <div class="text-center mb-5">
+      <h2 class="h1 fw-bold mb-3">Meet the AI Marketing Squad</h2>
+      <p class="text-secondary max-width-600 mx-auto">
+        Each agent operates autonomously within their specific field, using native REST API frameworks to pass demand reports, promotions, creatives, and optimization metrics in real-time.
+      </p>
+    </div>
+
+    <!-- Mobile selectors -->
+    <div class="d-flex d-md-none overflow-auto gap-2 pb-3 mb-4 justify-content-start">
+      <button 
+        *ngFor="let agent of agents" 
+        (click)="selectAgent(agent)"
+        class="btn btn-sm rounded-pill text-nowrap"
+        [ngClass]="selectedAgent?.id === agent.id ? 'btn-terracotta text-white' : 'btn-outline-terracotta'">
+        {{ agent.role }}
+      </button>
+    </div>
+
+    <div class="row g-4 align-items-stretch">
+      <!-- Desktop Side Selection Links -->
+      <div class="col-md-4 d-none d-md-block">
+        <div class="d-flex flex-column h-100 justify-content-center gap-3">
+          <div 
+            *ngFor="let agent of agents" 
+            (click)="selectAgent(agent)"
+            class="agent-select-item p-3 d-flex align-items-center"
+            [class.active]="selectedAgent?.id === agent.id"
+            [style.border-left-color]="agent.color">
+            <div class="avatar-mini-circle me-3" [style.background-color]="agent.color + '15'">
+              <img [src]="agent.avatar" [alt]="agent.name" style="width: 32px; height: 32px;">
+            </div>
+            <div>
+              <h5 class="m-0 fw-bold fs-6">{{ agent.name }}</h5>
+              <small class="text-muted">{{ agent.role }}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Details Spotlight Card -->
+      <div class="col-md-8 col-12" *ngIf="selectedAgent">
+        <div class="spotlight-card h-100 p-4 p-lg-5 position-relative overflow-hidden">
+          <div class="spotlight-bg-glow" [style.background-color]="selectedAgent.color + '0a'"></div>
+          
+          <div class="row g-4 align-items-center">
+            <div class="col-lg-4 text-center">
+              <div class="spotlight-avatar shadow" [style.border-color]="selectedAgent.color">
+                <img [src]="selectedAgent.avatar" [alt]="selectedAgent.name">
+              </div>
+              <div class="mt-3">
+                <span class="badge-pill-custom bg-opacity-10 text-uppercase tracking-wider fw-bold" 
+                      [style.background-color]="selectedAgent.color + '18'"
+                      [style.color]="selectedAgent.color">
+                  {{ selectedAgent.status }}
+                </span>
+              </div>
+            </div>
+            
+            <div class="col-lg-8">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="material-icons fs-4" [style.color]="selectedAgent.color">verified_user</span>
+                <span class="fw-bold tracking-wide" [style.color]="selectedAgent.color">{{ selectedAgent.role }}</span>
+              </div>
+              
+              <h3 class="display-6 fw-bold mb-3">{{ selectedAgent.name }}</h3>
+              <p class="lead-sm text-secondary mb-4">{{ selectedAgent.bio }}</p>
+              
+              <div class="row g-3">
+                <div class="col-sm-6">
+                  <div class="metric-box">
+                    <small class="text-muted d-block">Orchestration Framework</small>
+                    <span class="fw-semibold">REST API Stream / RxJS</span>
+                  </div>
+                </div>
+                <div class="col-sm-6">
+                  <div class="metric-box">
+                    <small class="text-muted d-block">Primary Language</small>
+                    <span class="fw-semibold">TypeScript & Angular Signals</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Synergy Walkthrough Section -->
+<section class="synergy-flow-section py-5">
+  <div class="container py-4">
+    <div class="text-center mb-5">
+      <h2 class="h1 fw-bold mb-3">The Multi-Agent Workflow</h2>
+      <p class="text-secondary max-width-600 mx-auto">
+        Witness how our microservice architecture coordinates each agent autonomously, passing details sequentially from intelligence analysis to performance optimization.
+      </p>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-md-3 col-sm-6">
+        <div class="flow-card p-4 h-100 text-center">
+          <div class="flow-icon bg-accent-clay-muted text-clay mx-auto mb-4" style="background-color: var(--accent-clay)15;">
+            <span class="material-icons fs-2" style="color: var(--accent-clay);">insights</span>
+          </div>
+          <h4 class="fw-bold mb-3">1. BI Analysis</h4>
+          <p class="text-muted small mb-0">
+            Alpha conducts sales analysis, tracks product performance, and builds demand forecasting profiles.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-3 col-sm-6">
+        <div class="flow-card p-4 h-100 text-center">
+          <div class="flow-icon bg-accent-terracotta-muted text-terracotta mx-auto mb-4">
+            <span class="material-icons fs-2">calendar_today</span>
+          </div>
+          <h4 class="fw-bold mb-3">2. Marketing Plan</h4>
+          <p class="text-muted small mb-0">
+            Orion coordinates festival discounts, marketing campaign rollouts, and weekly schedules.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-3 col-sm-6">
+        <div class="flow-card p-4 h-100 text-center">
+          <div class="flow-icon bg-accent-amber-muted text-amber mx-auto mb-4">
+            <span class="material-icons fs-2">auto_stories</span>
+          </div>
+          <h4 class="fw-bold mb-3">3. Creative Studio</h4>
+          <p class="text-muted small mb-0">
+            Veda writes engaging captions, outlines poster dimensions, identifies hashtags, and storyboards reels.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-3 col-sm-6">
+        <div class="flow-card p-4 h-100 text-center">
+          <div class="flow-icon bg-accent-sage-muted text-sage mx-auto mb-4">
+            <span class="material-icons fs-2">published_with_changes</span>
+          </div>
+          <h4 class="fw-bold mb-3">4. Optimization</h4>
+          <p class="text-muted small mb-0">
+            Lyra collects conversion feedback, evaluates campaigns, and fine-tunes targeting parameters.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center mt-5">
+      <a routerLink="/workspace" class="btn premium-btn-primary px-5 py-3">
+        Launch Interactive Demo
+      </a>
+    </div>
+  </div>
+</section>

@@ -1,1 +1,233 @@
-/* You can add global styles to this file, and also import other style files */
+/* Google Fonts Import */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+
+/* Import Bootstrap 5 */
+@import "bootstrap/dist/css/bootstrap.min.css";
+
+/* Import Angular Material Core Theme */
+@import "@angular/material/prebuilt-themes/deeppurple-amber.css";
+
+/* Import ngx-toastr styles */
+@import "ngx-toastr/toastr";
+
+/* Design Tokens & CSS Variables */
+:root {
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* Earthy Soft Palette (Strictly No Blue) */
+  --bg-primary: #fbf9f5;
+  --bg-secondary: #f4efdf;
+  --bg-card: #ffffff;
+  --text-primary: #2e2620;
+  --text-secondary: #756a60;
+  --accent-terracotta: #c95b32;
+  --accent-terracotta-muted: rgba(201, 91, 50, 0.1);
+  --accent-terracotta-hover: #b04b25;
+  --accent-amber: #dfa84a;
+  --accent-amber-muted: rgba(223, 168, 74, 0.1);
+  --accent-sage: #728b74;
+  --accent-sage-muted: rgba(114, 139, 116, 0.1);
+  --accent-clay: #a37c5d;
+  
+  --border-color: rgba(46, 38, 32, 0.08);
+  --card-shadow: 0 10px 40px -10px rgba(46, 38, 32, 0.06);
+  --card-shadow-hover: 0 20px 50px -10px rgba(201, 91, 50, 0.09);
+  
+  --transition-smooth: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* Material Component Theme Overrides to Match Custom Palette */
+.mat-mdc-card {
+  --mdc-outlined-card-container-color: var(--bg-card) !important;
+  border-radius: 16px !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: var(--card-shadow) !important;
+  transition: var(--transition-smooth) !important;
+}
+
+.mat-mdc-card:hover {
+  box-shadow: var(--card-shadow-hover) !important;
+  border-color: rgba(201, 91, 50, 0.2) !important;
+}
+
+/* Overriding Material Buttons, Forms, Sidenav */
+.mat-mdc-raised-button.mat-primary {
+  --mdc-protected-button-container-color: var(--accent-terracotta) !important;
+  --mdc-protected-button-label-text-color: #ffffff !important;
+}
+.mat-mdc-button.mat-primary {
+  --mdc-text-button-label-text-color: var(--accent-terracotta) !important;
+}
+.mat-mdc-outlined-button.mat-primary {
+  --mdc-outlined-button-outline-color: var(--accent-terracotta) !important;
+  --mdc-outlined-button-label-text-color: var(--accent-terracotta) !important;
+}
+
+.mat-mdc-form-field {
+  --mdc-filled-value-helper-text-color: var(--text-secondary);
+  --mdc-outlined-text-field-focus-outline-color: var(--accent-terracotta) !important;
+  --mdc-outlined-text-field-focus-label-text-color: var(--accent-terracotta) !important;
+  font-family: var(--font-sans) !important;
+}
+
+/* Toastr Styles overriding to match our Earth theme */
+.toast-container .ngx-toastr {
+  border-radius: 12px !important;
+  font-family: var(--font-sans) !important;
+  box-shadow: 0 10px 30px rgba(46, 38, 32, 0.12) !important;
+  padding: 18px 18px 18px 50px !important;
+}
+.toast-success {
+  background-color: var(--accent-sage) !important;
+  background-image: none !important;
+}
+.toast-info {
+  background-color: var(--accent-clay) !important;
+  background-image: none !important;
+}
+.toast-warning {
+  background-color: var(--accent-amber) !important;
+  color: var(--text-primary) !important;
+  background-image: none !important;
+}
+.toast-error {
+  background-color: var(--accent-terracotta) !important;
+  background-image: none !important;
+}
+
+/* General Layout Reset */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+p {
+  color: var(--text-secondary);
+}
+
+/* Custom Premium Components & Styles */
+.premium-gradient-text {
+  background: linear-gradient(135deg, var(--accent-terracotta) 0%, var(--accent-amber) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.premium-btn-primary {
+  background: linear-gradient(135deg, var(--accent-terracotta) 0%, #b04b25 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 30px;
+  padding: 12px 28px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  box-shadow: 0 6px 20px rgba(201, 91, 50, 0.25);
+  transition: var(--transition-smooth);
+}
+
+.premium-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(201, 91, 50, 0.35);
+  color: #ffffff;
+}
+
+.premium-btn-secondary {
+  background: transparent;
+  color: var(--accent-terracotta);
+  border: 2px solid var(--accent-terracotta);
+  border-radius: 30px;
+  padding: 10px 26px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: var(--transition-smooth);
+}
+
+.premium-btn-secondary:hover {
+  background: var(--accent-terracotta-muted);
+  color: var(--accent-terracotta-hover);
+  border-color: var(--accent-terracotta-hover);
+  transform: translateY(-2px);
+}
+
+.premium-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--card-shadow);
+  transition: var(--transition-smooth);
+}
+
+.premium-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--card-shadow-hover);
+  border-color: rgba(201, 91, 50, 0.15);
+}
+
+.avatar-wrapper {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.badge-pill-custom {
+  font-size: 0.75rem;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-secondary);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-clay);
+}
+
+/* Loader Animation */
+.premium-pulse {
+  animation: pulse-animation 2s infinite ease-in-out;
+}
+
+@keyframes pulse-animation {
+  0% {
+    transform: scale(0.98);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.98);
+    opacity: 0.8;
+  }
+}
