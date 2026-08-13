@@ -1,10 +1,9 @@
-from decimal import Decimal
 from datetime import datetime
-
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class ProductBase(BaseModel):
+
     product_name: str = Field(
         ...,
         min_length=2,
@@ -14,12 +13,12 @@ class ProductBase(BaseModel):
     category: str = Field(
         ...,
         min_length=2,
-        max_length=50
+        max_length=100
     )
 
     description: str | None = Field(
         default=None,
-        max_length=500
+        max_length=1000
     )
 
     sku: str = Field(
@@ -28,10 +27,14 @@ class ProductBase(BaseModel):
         max_length=50
     )
 
-    price: Decimal = Field(
+    price: float = Field(
         ...,
-        gt=0,
-        decimal_places=2
+        gt=0
+    )
+
+    stock: int = Field(
+        default=0,
+        ge=0
     )
 
     image_url: str | None = None
@@ -42,6 +45,7 @@ class ProductCreate(ProductBase):
 
 
 class ProductUpdate(BaseModel):
+
     product_name: str | None = Field(
         default=None,
         min_length=2,
@@ -51,12 +55,12 @@ class ProductUpdate(BaseModel):
     category: str | None = Field(
         default=None,
         min_length=2,
-        max_length=50
+        max_length=100
     )
 
     description: str | None = Field(
         default=None,
-        max_length=500
+        max_length=1000
     )
 
     sku: str | None = Field(
@@ -65,10 +69,14 @@ class ProductUpdate(BaseModel):
         max_length=50
     )
 
-    price: Decimal | None = Field(
+    price: float | None = Field(
         default=None,
-        gt=0,
-        decimal_places=2
+        gt=0
+    )
+
+    stock: int | None = Field(
+        default=None,
+        ge=0
     )
 
     image_url: str | None = None
@@ -77,6 +85,7 @@ class ProductUpdate(BaseModel):
 
 
 class ProductResponse(ProductBase):
+
     id: int
     business_id: int
     is_active: bool
