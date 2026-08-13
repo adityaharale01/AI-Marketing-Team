@@ -6,7 +6,8 @@ from app.routers.auth import router as auth_router
 # Import all models
 from app.models import User, Business, Product
 from app.routers.users import router as user_router
-
+from app.routers import sale
+from app.routers import product
 
 app = FastAPI(
     title="AI Marketing Team API",
@@ -15,6 +16,8 @@ app = FastAPI(
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(business.router)
+app.include_router(sale.router)
+app.include_router(product.router)
 @app.get("/")
 def home():
     return {
