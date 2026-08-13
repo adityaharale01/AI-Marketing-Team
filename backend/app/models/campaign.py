@@ -98,3 +98,8 @@ class Campaign(Base):
         "Business",
         back_populates="campaigns"
     )
+    contents = relationship(
+    "CampaignContent",
+    back_populates="campaign",
+    cascade="all, delete-orphan"
+)
