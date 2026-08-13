@@ -9,7 +9,7 @@ from app.routers.users import router as user_router
 from app.routers import sale
 from app.routers import product
 from app.routers import campaign
-
+from app.routers import campaign_content
 app = FastAPI(
     title="AI Marketing Team API",
     version="1.0.0"
@@ -20,6 +20,7 @@ app.include_router(business.router)
 app.include_router(sale.router)
 app.include_router(product.router)
 app.include_router(campaign.router)
+app.include_router(campaign_content.router)
 @app.get("/")
 def home():
     return {
