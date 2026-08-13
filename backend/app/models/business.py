@@ -81,3 +81,8 @@ class Business(Base):
     back_populates="business",
     cascade="all, delete-orphan"
 )
+    campaigns = relationship(
+    "Campaign",
+    back_populates="business",
+    cascade="all, delete-orphan"
+)

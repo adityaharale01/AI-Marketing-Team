@@ -11,6 +11,7 @@ from app.models.user import User
 from app.models.business import Business
 from app.models.product import Product
 from app.models.sale import Sale
+from app.models.campaign import Campaign
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
