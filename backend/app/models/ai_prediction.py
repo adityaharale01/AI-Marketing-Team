@@ -3,10 +3,10 @@ from sqlalchemy import (
     Integer,
     String,
     Float,
+    Date,
+    DateTime,
     ForeignKey,
-    Boolean,
-    Text,
-    DateTime
+    Text
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -14,8 +14,8 @@ from sqlalchemy.sql import func
 from app.database import Base
 
 
-class Product(Base):
-    __tablename__ = "products"
+class AIPrediction(Base):
+    __tablename__ = "ai_predictions"
 
     id = Column(
         Integer,
@@ -29,49 +29,53 @@ class Product(Base):
             "businesses.id",
             ondelete="CASCADE"
         ),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
-    product_name = Column(
-        String(100),
-        nullable=False
+    product_id = Column(
+        Integer,
+        ForeignKey(
+            "products.id",
+            ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True
     )
 
-    category = Column(
-        String(100),
-        nullable=False
-    )
-
-    description = Column(
-        Text,
-        nullable=True
-    )
-
-    sku = Column(
+    prediction_type = Column(
         String(50),
         nullable=False
     )
 
-    price = Column(
+    predicted_value = Column(
         Float,
         nullable=False
     )
 
-    stock = Column(
-        Integer,
-        default=0,
+    prediction_date = Column(
+        Date,
         nullable=False
     )
 
-    image_url = Column(
-        String(500),
+    period = Column(
+        String(50),
+        nullable=False
+    )
+
+    model_name = Column(
+        String(100),
+        nullable=False
+    )
+
+    confidence_score = Column(
+        Float,
         nullable=True
     )
 
-    is_active = Column(
-        Boolean,
-        default=True,
-        nullable=False
+    explanation = Column(
+        Text,
+        nullable=True
     )
 
     created_at = Column(
@@ -87,21 +91,12 @@ class Product(Base):
         nullable=False
     )
 
-    # Business relationship
     business = relationship(
         "Business",
-        back_populates="products"
+        back_populates="ai_predictions"
     )
 
-    # Sales relationship
-    sales = relationship(
-        "Sale",
-        back_populates="product",
-        cascade="all, delete-orphan"
+    product = relationship(
+        "Product",
+        back_populates="ai_predictions"
     )
-
-    ai_predictions = relationship(
-    "AIPrediction",
-    back_populates="product",
-    cascade="all, delete-orphan"
-)

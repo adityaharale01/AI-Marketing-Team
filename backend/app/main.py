@@ -11,6 +11,7 @@ from app.routers import product
 from app.routers import campaign
 from app.routers import campaign_content
 from app.routers import ai_interaction
+from app.routers import ai_prediction
 app = FastAPI(
     title="AI Marketing Team API",
     version="1.0.0"
@@ -23,6 +24,8 @@ app.include_router(product.router)
 app.include_router(campaign.router)
 app.include_router(campaign_content.router)
 app.include_router(ai_interaction.router)
+app.include_router(ai_prediction.router)
+
 @app.get("/")
 def home():
     return {

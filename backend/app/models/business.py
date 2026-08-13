@@ -92,3 +92,8 @@ class Business(Base):
     back_populates="business",
     cascade="all, delete-orphan"
 )
+    ai_predictions = relationship(
+    "AIPrediction",
+    back_populates="business",
+    cascade="all, delete-orphan"
+)
