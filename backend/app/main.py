@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from app.routers import business
 from app.database import engine, Base
@@ -12,6 +13,7 @@ from app.routers import campaign
 from app.routers import campaign_content
 from app.routers import ai_interaction
 from app.routers import ai_prediction
+from app.routers.ai_response import router as ai_router
 app = FastAPI(
     title="AI Marketing Team API",
     version="1.0.0"
@@ -25,7 +27,14 @@ app.include_router(campaign.router)
 app.include_router(campaign_content.router)
 app.include_router(ai_interaction.router)
 app.include_router(ai_prediction.router)
-
+app.include_router(ai_router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:4200"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 @app.get("/")
 def home():
     return {
