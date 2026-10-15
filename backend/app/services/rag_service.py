@@ -9,11 +9,13 @@ from app.models.product import Product
 from app.models.sale import Sale
 from app.models.campaign import Campaign
 
-from app.services.performance_service import (
-    get_product_performance
+from app.services.business_analytics_service import (
+    get_business_analytics
 )
 
-
+from app.services.sales_summary_service import (
+    get_sales_summary
+)
 # =========================================================
 # 1. EMBEDDING MODEL
 # =========================================================
@@ -117,23 +119,43 @@ def search_context(
 def search_business_context(
     query: str,
     business_id: int,
-    n_results: int = 3
+    n_results: int = 5,
+    context_type: str = None
 ):
     """
-    Search only the RAG documents belonging to
-    the requested business.
+    Search ChromaDB for a specific business.
+
+    If context_type is provided, only documents
+    of that type are retrieved.
     """
 
     query_embedding = embedding_model.encode(
         query
     ).tolist()
 
+    # Always restrict search to the requested business
+    where_filter = {
+        "business_id": str(business_id)
+    }
+
+    # Optional context-type filtering
+    if context_type:
+
+        where_filter = {
+            "$and": [
+                {
+                    "business_id": str(business_id)
+                },
+                {
+                    "context_type": context_type
+                }
+            ]
+        }
+
     results = collection.query(
         query_embeddings=[query_embedding],
         n_results=n_results,
-        where={
-            "business_id": str(business_id)
-        }
+        where=where_filter
     )
 
     return results
@@ -361,20 +383,19 @@ def index_product_performance(
     business_id: int
 ):
     """
-    Index calculated product performance information
-    into ChromaDB.
+    Index the latest verified product performance
+    calculated directly from PostgreSQL.
     """
 
-    performance_data = get_product_performance(
-        db,
-        business_id
+    analytics = get_business_analytics(
+        db=db,
+        business_id=business_id,
+        period_days=7
     )
 
-    business_name = (
-        performance_data["business_name"]
-    )
+    business_name = analytics["business_name"]
 
-    for product in performance_data["products"]:
+    for product in analytics.get("products", []):
 
         context = f"""
 Verified Product Performance
@@ -393,22 +414,19 @@ Previous Period Sales:
 {product["previous_quantity"]} units
 
 Sales Growth:
-{product["quantity_growth_percent"]}%
+{product["growth_percent"]}%
 
 Recent Revenue:
 ₹{product["recent_revenue"]}
-
-Previous Revenue:
-₹{product["previous_revenue"]}
-
-Revenue Growth:
-{product["revenue_growth_percent"]}%
 
 Current Stock:
 {product["stock"]}
 
 Performance Status:
-{product["performance_status"]}
+{product["status"]}
+
+Performance Label:
+{product["performance_label"]}
 
 This performance information is calculated
 from actual sales records stored in PostgreSQL.
@@ -425,4 +443,79 @@ from actual sales records stored in PostgreSQL.
             context_type="performance"
         )
 
-    return performance_data
+    return analytics
+
+def index_sales_summary(
+    db: Session,
+    business_id: int
+):
+
+    summary = get_sales_summary(
+        db=db,
+        business_id=business_id,
+        period_days=30
+    )
+
+    if "message" in summary:
+        return summary
+
+    business_name = summary["business_name"]
+
+    context = f"""
+Verified Business Sales Summary
+
+Business ID: {business_id}
+Business: {business_name}
+Business Type: {summary["business_type"]}
+
+Analysis Period:
+{summary["period_days"]} days
+
+Recent Quantity Sold:
+{summary["recent_period"]["quantity_sold"]}
+
+Previous Quantity Sold:
+{summary["previous_period"]["quantity_sold"]}
+
+Recent Revenue:
+₹{summary["recent_period"]["revenue"]}
+
+Previous Revenue:
+₹{summary["previous_period"]["revenue"]}
+
+Quantity Growth:
+{summary["growth"]["quantity_percent"]}%
+
+Revenue Growth:
+{summary["growth"]["revenue_percent"]}%
+
+TOP PRODUCTS BY RECENT REVENUE:
+
+{summary["top_products"]}
+
+INCREASING PRODUCTS:
+
+{summary["increasing_products"]}
+
+DECLINING PRODUCTS:
+
+{summary["declining_products"]}
+
+LOW STOCK PRODUCTS:
+
+{summary["low_stock_products"]}
+
+This information is calculated directly
+from actual PostgreSQL sales and product data.
+"""
+
+    add_context(
+        context=context,
+        context_id=(
+            f"business_{business_id}_sales_summary"
+        ),
+        business_id=business_id,
+        context_type="sales_summary"
+    )
+
+    return summary

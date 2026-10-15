@@ -1,246 +1,1609 @@
+# app/services/business_agent.py
+
+from typing import Any, Dict, List
+
+from sqlalchemy.orm import Session
+
+
 from app.services.business_analytics_service import (
-    get_business_analytics
+    get_business_analytics,
 )
+
+
+from app.services.time_period_service import (
+    detect_time_period,
+)
+
 
 from app.services.rag_service import (
     search_business_context,
-    build_context
+    build_context,
 )
 
+
 from app.services.ollama_service import (
-    generate_response
+    generate_response,
 )
+
+
+from app.services.query_intent_service import (
+    classify_query,
+)
+
+
+from app.services.business_recommendation_service import (
+    get_product_recommendation,
+    recommend_for_declining_products,
+    recommend_for_increasing_products,
+    recommend_for_out_of_stock_products,
+    recommend_for_low_stock_products,
+    generate_business_recommendations,
+)
+
+
+from app.services.promotion_service import (
+    get_promotion_opportunities,
+    get_declining_promotion_opportunities,
+    get_growing_promotion_opportunities,
+    generate_promotion_summary,
+)
+
+
+# ============================================================
+# BUSINESS AGENT
+# ============================================================
 
 
 async def ask_business_agent(
-    db,
+    db: Session,
     business_id: int,
-    query: str
-):
+    query: str,
+) -> Dict[str, Any]:
 
-    # =========================================================
-    # 1. GET VERIFIED BUSINESS ANALYTICS FROM POSTGRESQL
-    # =========================================================
+    # ========================================================
+    # 1. DETECT TIME PERIOD
+    # ========================================================
 
-    analytics = get_business_analytics(
-        db,
-        business_id
+    time_period = detect_time_period(
+        query
     )
 
-    # =========================================================
-    # 2. HANDLE BUSINESS WITH NO SALES DATA
-    # =========================================================
+    period_days = time_period.get(
+        "period_days",
+        7,
+    )
 
-    if "message" in analytics:
+    period_label = time_period.get(
+        "period_label",
+        "last 7 days",
+    )
+
+    period_explicit = time_period.get(
+        "explicit",
+        False,
+    )
+
+
+    # ========================================================
+    # 2. GET VERIFIED BUSINESS ANALYTICS
+    # ========================================================
+
+    analytics = get_business_analytics(
+        db=db,
+        business_id=business_id,
+        period_days=period_days,
+    )
+
+
+    if not analytics:
 
         return {
             "business_id": business_id,
-            "business_name": analytics["business_name"],
             "query": query,
-            "answer": analytics["message"],
-            "analytics": analytics
+            "answer": "Unable to find business analytics.",
+            "intents": [],
+            "time_period": {
+                "period_days": period_days,
+                "period_label": period_label,
+                "explicit": period_explicit,
+            },
+            "analytics": {},
+            "rag_context": "",
         }
 
-    # =========================================================
-    # 3. CREATE VERIFIED FINDINGS
-    # =========================================================
 
-    verified_findings = []
-
-    for product in analytics.get("products", []):
-
-        # -----------------------------------------------------
-        # Stock status
-        # -----------------------------------------------------
-
-        if product["stock"] == 0:
-            stock_status = "Out of stock"
-
-        elif product["stock"] <= 5:
-            stock_status = "Low stock"
-
-        else:
-            stock_status = "In stock"
-
-        # -----------------------------------------------------
-        # Verified finding
-        # -----------------------------------------------------
-
-        finding = {
-            "product_name": product["product_name"],
-            "recent_quantity": product["recent_quantity"],
-            "recent_revenue": product["recent_revenue"],
-            "previous_quantity": product["previous_quantity"],
-            "growth_percent": product["growth_percent"],
-            "performance_label": product["performance_label"],
-            "stock": product["stock"],
-            "stock_status": stock_status,
-            "status": product["status"]
-        }
-
-        verified_findings.append(finding)
-
-    # =========================================================
-    # 4. DETERMINE PRODUCT COMPARISON
-    # =========================================================
-
-    comparison_possible = (
-        len(verified_findings) > 1
+    business_name = analytics.get(
+        "business_name",
+        "Business",
     )
 
-    if not comparison_possible:
 
-        comparison_instruction = """
-There is only one product with available sales data.
+    products = analytics.get(
+        "products",
+        [],
+    )
 
-A product-to-product comparison is NOT possible.
 
-Do NOT identify the product as the best-performing
-product.
+    # ========================================================
+    # 3. BUILD PRODUCT GROUPS
+    # ========================================================
 
-Explain only the verified facts.
-"""
+    increasing_products = [
+        p
+        for p in products
+        if p.get("status") == "Increasing"
+    ]
 
-    else:
 
-        comparison_instruction = """
-Multiple products are available.
+    declining_products = [
+        p
+        for p in products
+        if p.get("status") == "Declining"
+    ]
 
-Only identify a best-performing product if the
-verified analytics supports the comparison.
-"""
 
-    # =========================================================
-    # 5. SEARCH BUSINESS-SPECIFIC RAG CONTEXT
-    # =========================================================
+    stable_products = [
+        p
+        for p in products
+        if p.get("status") == "Stable"
+    ]
+
+
+    out_of_stock_products = [
+        p
+        for p in products
+        if int(
+            p.get("stock", 0) or 0
+        ) == 0
+    ]
+
+
+    low_stock_products = [
+        p
+        for p in products
+        if (
+            0
+            <
+            int(
+                p.get("stock", 0) or 0
+            )
+            <= 5
+        )
+    ]
+
+
+    # ========================================================
+    # 4. SEARCH RAG CONTEXT
+    # ========================================================
 
     rag_results = search_business_context(
         query=query,
         business_id=business_id,
-        n_results=3
+        n_results=3,
     )
+
 
     rag_context = build_context(
         rag_results
     )
 
-    # =========================================================
-    # 6. PERFORMANCE QUESTION DETECTION
-    # =========================================================
 
-    performance_keywords = [
-        "performing well",
-        "performing best",
-        "best product",
-        "top product",
-        "best selling",
-        "best-selling",
-        "which product is better",
-        "which product performs best",
-        "which product is performing best"
-    ]
+    # ========================================================
+    # 5. CLASSIFY USER QUERY
+    # ========================================================
+
+    intents = await classify_query(
+        query
+    )
+
+
+    intent_names = {
+        intent.get("intent")
+        for intent in intents
+    }
+
+
+    # ========================================================
+    # HELPER: BUILD STANDARD RESPONSE
+    # ========================================================
+
+    def build_response(
+        answer: str,
+    ) -> Dict[str, Any]:
+
+        return {
+            "business_id": business_id,
+            "business_name": business_name,
+            "query": query,
+            "answer": answer,
+            "intents": intents,
+            "time_period": {
+                "period_days": period_days,
+                "period_label": period_label,
+                "explicit": period_explicit,
+            },
+            "analytics": analytics,
+            "rag_context": rag_context,
+        }
+
+
+    # ========================================================
+    # 6. PROFIT
+    # ========================================================
+
+    if "PROFIT" in intent_names:
+
+        answer = (
+            "Profit cannot currently be calculated accurately "
+            "because the available business data does not include "
+            "product cost or expense information."
+        )
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 7. DECLINING + PROMOTION
+    #
+    # IMPORTANT:
+    # This MUST COME BEFORE the generic
+    # DECLINING + RECOMMENDATION handler.
+    # ========================================================
+
+    if (
+        "DECLINING_PRODUCTS" in intent_names
+        and
+        "PROMOTION_RECOMMENDATION" in intent_names
+    ):
+
+        promotion_opportunities = (
+            get_declining_promotion_opportunities(
+                products,
+                limit=5,
+            )
+        )
+
+
+        if not promotion_opportunities:
+
+            return build_response(
+                "There are currently no declining products "
+                "with available inventory that should be "
+                "prioritized for promotion."
+            )
+
+
+        answer = (
+            "Declining products suitable for promotion:\n\n"
+        )
+
+
+        for index, item in enumerate(
+            promotion_opportunities,
+            start=1,
+        ):
+
+            growth = item.get(
+                "growth_percent",
+                0,
+            )
+
+
+            growth_text = (
+                f"+{growth}%"
+                if growth >= 0
+                else f"{growth}%"
+            )
+
+
+            answer += (
+                f"{index}. {item['product_name']}\n"
+                f"   Growth: {growth_text}\n"
+                f"   Stock: {item['stock']}\n"
+                f"   Recent Revenue: "
+                f"₹{item['recent_revenue']}\n"
+                f"   Promotion Score: "
+                f"{item['promotion_score']}/100\n"
+                f"   Priority: "
+                f"{item['priority']}\n"
+                f"   Reason: "
+                f"{item['reason']}\n"
+                f"   Recommended Action: "
+                f"{item['recommended_action']}\n\n"
+            )
+
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 8. INCREASING + PROMOTION
+    # ========================================================
+
+    if (
+        "INCREASING_PRODUCTS" in intent_names
+        and
+        "PROMOTION_RECOMMENDATION" in intent_names
+    ):
+
+        promotion_opportunities = (
+            get_growing_promotion_opportunities(
+                products,
+                limit=5,
+            )
+        )
+
+
+        if not promotion_opportunities:
+
+            return build_response(
+                "There are currently no increasing products "
+                "with suitable inventory for promotion."
+            )
+
+
+        answer = (
+            "Increasing products suitable for promotion:\n\n"
+        )
+
+
+        for index, item in enumerate(
+            promotion_opportunities,
+            start=1,
+        ):
+
+            growth = item.get(
+                "growth_percent",
+                0,
+            )
+
+
+            growth_text = (
+                f"+{growth}%"
+                if growth >= 0
+                else f"{growth}%"
+            )
+
+
+            answer += (
+                f"{index}. {item['product_name']}\n"
+                f"   Growth: {growth_text}\n"
+                f"   Stock: {item['stock']}\n"
+                f"   Recent Revenue: "
+                f"₹{item['recent_revenue']}\n"
+                f"   Promotion Score: "
+                f"{item['promotion_score']}/100\n"
+                f"   Priority: "
+                f"{item['priority']}\n"
+                f"   Reason: "
+                f"{item['reason']}\n"
+                f"   Recommended Action: "
+                f"{item['recommended_action']}\n\n"
+            )
+
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 9. GENERAL PROMOTION RECOMMENDATION
+    #
+    # Handles:
+    # "Which products should I promote?"
+    # "What products have the best promotion opportunity?"
+    # "Which products have the best promotion opportunities?"
+    #
+    # IMPORTANT:
+    # General promotion is divided into:
+    #
+    # 1. Recovery opportunities
+    # 2. Growth opportunities
+    # 3. Summary
+    #
+    # This version directly calls the working promotion
+    # functions instead of depending on the summary dictionary.
+    # ========================================================
+
+    if "PROMOTION_RECOMMENDATION" in intent_names:
+
+        # ----------------------------------------------------
+        # RECOVERY OPPORTUNITIES
+        # ----------------------------------------------------
+
+        recovery_opportunities = (
+            get_declining_promotion_opportunities(
+                products,
+                limit=5,
+            )
+        )
+
+
+        # ----------------------------------------------------
+        # GROWTH OPPORTUNITIES
+        # ----------------------------------------------------
+
+        growth_opportunities = (
+            get_growing_promotion_opportunities(
+                products,
+                limit=5,
+            )
+        )
+
+
+        # ----------------------------------------------------
+        # HIGH PRIORITY
+        # ----------------------------------------------------
+
+        high_priority = [
+            item
+            for item in (
+                recovery_opportunities
+                + growth_opportunities
+            )
+            if item.get("priority") == "HIGH"
+        ]
+
+
+        # ----------------------------------------------------
+        # NO OPPORTUNITIES
+        # ----------------------------------------------------
+
+        if (
+            not recovery_opportunities
+            and
+            not growth_opportunities
+        ):
+
+            return build_response(
+                "There are currently no strong promotion "
+                "opportunities based on the available sales "
+                "and inventory data."
+            )
+
+
+        # ----------------------------------------------------
+        # MAIN RESPONSE
+        # ----------------------------------------------------
+
+        answer = (
+            f"Promotion Opportunities — {period_label}\n\n"
+        )
+
+
+        # ====================================================
+        # RECOVERY OPPORTUNITIES
+        # ====================================================
+
+        answer += (
+            "RECOVERY OPPORTUNITIES\n"
+            "Products whose sales are declining and "
+            "could benefit from a targeted recovery campaign.\n\n"
+        )
+
+
+        if recovery_opportunities:
+
+            for index, item in enumerate(
+                recovery_opportunities,
+                start=1,
+            ):
+
+                growth = item.get(
+                    "growth_percent",
+                    0,
+                )
+
+
+                growth_text = (
+                    f"+{growth}%"
+                    if growth >= 0
+                    else f"{growth}%"
+                )
+
+
+                answer += (
+                    f"{index}. {item['product_name']}\n"
+                    f"   Growth: {growth_text}\n"
+                    f"   Revenue: ₹{item['recent_revenue']}\n"
+                    f"   Stock: {item['stock']}\n"
+                    f"   Promotion Score: "
+                    f"{item['promotion_score']}/100\n"
+                    f"   Priority: {item['priority']}\n"
+                    f"   Reason: {item['reason']}\n"
+                    f"   Action: "
+                    f"{item['recommended_action']}\n\n"
+                )
+
+        else:
+
+            answer += (
+                "No declining products currently qualify "
+                "for a recovery promotion.\n\n"
+            )
+
+
+        # ====================================================
+        # GROWTH OPPORTUNITIES
+        # ====================================================
+
+        answer += (
+            "GROWTH OPPORTUNITIES\n"
+            "Products already showing positive growth "
+            "that could benefit from a growth-focused campaign.\n\n"
+        )
+
+
+        if growth_opportunities:
+
+            for index, item in enumerate(
+                growth_opportunities,
+                start=1,
+            ):
+
+                growth = item.get(
+                    "growth_percent",
+                    0,
+                )
+
+
+                growth_text = (
+                    f"+{growth}%"
+                    if growth >= 0
+                    else f"{growth}%"
+                )
+
+
+                answer += (
+                    f"{index}. {item['product_name']}\n"
+                    f"   Growth: {growth_text}\n"
+                    f"   Revenue: ₹{item['recent_revenue']}\n"
+                    f"   Stock: {item['stock']}\n"
+                    f"   Promotion Score: "
+                    f"{item['promotion_score']}/100\n"
+                    f"   Priority: {item['priority']}\n"
+                    f"   Reason: {item['reason']}\n"
+                    f"   Action: "
+                    f"{item['recommended_action']}\n\n"
+                )
+
+        else:
+
+            answer += (
+                "No strongly increasing products currently "
+                "qualify for a growth promotion.\n\n"
+            )
+
+
+        # ====================================================
+        # SUMMARY
+        # ====================================================
+
+        answer += (
+            "SUMMARY\n"
+            f"Recovery opportunities: "
+            f"{len(recovery_opportunities)}\n"
+            f"Growth opportunities: "
+            f"{len(growth_opportunities)}\n"
+            f"High-priority opportunities: "
+            f"{len(high_priority)}\n"
+        )
+
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 10. DECLINING + GENERAL RECOMMENDATION
+    # ========================================================
+
+    if (
+        "DECLINING_PRODUCTS" in intent_names
+        and
+        "RECOMMENDATION" in intent_names
+    ):
+
+        recommendations = (
+            recommend_for_declining_products(
+                products
+            )
+        )
+
+
+        if not recommendations:
+
+            return build_response(
+                "There are currently no declining products "
+                "based on the latest sales data."
+            )
+
+
+        answer = (
+            "Declining products and recommended actions:\n\n"
+        )
+
+
+        for index, item in enumerate(
+            recommendations,
+            start=1,
+        ):
+
+            answer += (
+                f"{index}. {item['product_name']}\n"
+                f"   Growth: {item['growth_percent']}%\n"
+                f"   Stock: {item['stock']}\n"
+                f"   Severity: {item['severity']}\n"
+                f"   Action: {item['action']}\n\n"
+            )
+
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 11. INCREASING + GENERAL RECOMMENDATION
+    # ========================================================
+
+    if (
+        "INCREASING_PRODUCTS" in intent_names
+        and
+        "RECOMMENDATION" in intent_names
+    ):
+
+        recommendations = (
+            recommend_for_increasing_products(
+                products,
+                limit=3,
+            )
+        )
+
+
+        if not recommendations:
+
+            return build_response(
+                "There are currently no strongly increasing "
+                "products based on the latest sales data."
+            )
+
+
+        answer = (
+            "Products showing strong growth and "
+            "recommended actions:\n\n"
+        )
+
+
+        for index, item in enumerate(
+            recommendations,
+            start=1,
+        ):
+
+            growth = item["growth_percent"]
+
+
+            growth_text = (
+                f"+{growth}%"
+                if growth >= 0
+                else f"{growth}%"
+            )
+
+
+            answer += (
+                f"{index}. {item['product_name']}\n"
+                f"   Growth: {growth_text}\n"
+                f"   Stock: {item['stock']}\n"
+                f"   Severity: {item['severity']}\n"
+                f"   Action: {item['action']}\n\n"
+            )
+
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 12. OUT OF STOCK + RECOMMENDATION
+    # ========================================================
+
+    if (
+        "OUT_OF_STOCK" in intent_names
+        and
+        (
+            "RECOMMENDATION" in intent_names
+            or
+            "PROMOTION_RECOMMENDATION" in intent_names
+        )
+    ):
+
+        recommendations = (
+            recommend_for_out_of_stock_products(
+                products
+            )
+        )
+
+
+        if not recommendations:
+
+            return build_response(
+                "There are currently no out-of-stock products."
+            )
+
+
+        answer = (
+            "Out-of-stock products and recommended actions:\n\n"
+        )
+
+
+        for index, item in enumerate(
+            recommendations,
+            start=1,
+        ):
+
+            answer += (
+                f"{index}. {item['product_name']}\n"
+                f"   Growth: {item['growth_percent']}%\n"
+                f"   Recent sales: "
+                f"{item['recent_quantity']} units\n"
+                f"   Recent revenue: "
+                f"₹{item['recent_revenue']}\n"
+                f"   Severity: {item['severity']}\n"
+                f"   Action: {item['action']}\n\n"
+            )
+
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 13. OUT OF STOCK ONLY
+    # ========================================================
+
+    if "OUT_OF_STOCK" in intent_names:
+
+        if not out_of_stock_products:
+
+            return build_response(
+                "There are currently no out-of-stock products."
+            )
+
+
+        answer = (
+            "The following products are currently "
+            "out of stock:\n\n"
+        )
+
+
+        for index, product in enumerate(
+            out_of_stock_products,
+            start=1,
+        ):
+
+            answer += (
+                f"{index}. {product['product_name']}\n"
+                f"   Growth: "
+                f"{product.get('growth_percent')}%\n"
+                f"   Recent quantity: "
+                f"{product.get('recent_quantity', 0)} units\n"
+                f"   Recent revenue: "
+                f"₹{product.get('recent_revenue', 0)}\n\n"
+            )
+
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 14. LOW STOCK
+    # ========================================================
+
+    if "LOW_STOCK" in intent_names:
+
+        if not low_stock_products:
+
+            return build_response(
+                "There are currently no products with low stock."
+            )
+
+
+        answer = (
+            "Products with low stock:\n\n"
+        )
+
+
+        for index, product in enumerate(
+            low_stock_products,
+            start=1,
+        ):
+
+            answer += (
+                f"{index}. {product['product_name']}\n"
+                f"   Stock: "
+                f"{product.get('stock', 0)}\n"
+                f"   Growth: "
+                f"{product.get('growth_percent')}%\n"
+                f"   Status: "
+                f"{product.get('status')}\n\n"
+            )
+
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 15. NEEDS ATTENTION
+    # ========================================================
+
+    if "NEEDS_ATTENTION" in intent_names:
+
+        attention_products = [
+            p
+            for p in products
+            if (
+                p.get("status") == "Declining"
+                or
+                int(
+                    p.get("stock", 0) or 0
+                ) == 0
+                or
+                (
+                    0
+                    <
+                    int(
+                        p.get("stock", 0) or 0
+                    )
+                    <= 5
+                )
+            )
+        ]
+
+
+        # ----------------------------------------------------
+        # Remove duplicates
+        # ----------------------------------------------------
+
+        unique_products = {}
+
+
+        for product in attention_products:
+
+            unique_products[
+                product["product_name"]
+            ] = product
+
+
+        attention_products = list(
+            unique_products.values()
+        )
+
+
+        if not attention_products:
+
+            return build_response(
+                "No products currently require immediate attention."
+            )
+
+
+        # ----------------------------------------------------
+        # Worst growth first
+        # ----------------------------------------------------
+
+        attention_products.sort(
+            key=lambda x: (
+                x.get("growth_percent")
+                if x.get("growth_percent") is not None
+                else 0
+            )
+        )
+
+
+        answer = (
+            "Products that need attention:\n\n"
+        )
+
+
+        for index, product in enumerate(
+            attention_products,
+            start=1,
+        ):
+
+            recommendation = (
+                get_product_recommendation(
+                    product
+                )
+            )
+
+
+            answer += (
+                f"{index}. {product['product_name']}\n"
+                f"   Growth: "
+                f"{product.get('growth_percent')}%\n"
+                f"   Stock: "
+                f"{product.get('stock', 0)}\n"
+                f"   Severity: "
+                f"{recommendation['severity']}\n"
+                f"   Action: "
+                f"{recommendation['action']}\n\n"
+            )
+
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 16. DECLINING PRODUCTS ONLY
+    # ========================================================
+
+    if "DECLINING_PRODUCTS" in intent_names:
+
+        if not declining_products:
+
+            return build_response(
+                "There are currently no declining products."
+            )
+
+
+        declining_products.sort(
+            key=lambda x: (
+                x.get("growth_percent")
+                if x.get("growth_percent") is not None
+                else 0
+            )
+        )
+
+
+        answer = (
+            "Products with declining sales:\n\n"
+        )
+
+
+        for index, product in enumerate(
+            declining_products,
+            start=1,
+        ):
+
+            answer += (
+                f"{index}. {product['product_name']}\n"
+                f"   Growth: "
+                f"{product.get('growth_percent')}%\n"
+                f"   Stock: "
+                f"{product.get('stock', 0)}\n"
+                f"   Revenue: "
+                f"₹{product.get('recent_revenue', 0)}\n\n"
+            )
+
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 17. INCREASING PRODUCTS ONLY
+    # ========================================================
+
+    if "INCREASING_PRODUCTS" in intent_names:
+
+        if not increasing_products:
+
+            return build_response(
+                "There are currently no increasing products."
+            )
+
+
+        increasing_products.sort(
+            key=lambda x: (
+                x.get("growth_percent")
+                if x.get("growth_percent") is not None
+                else 0
+            ),
+            reverse=True,
+        )
+
+
+        answer = (
+            "Products showing increasing sales:\n\n"
+        )
+
+
+        for index, product in enumerate(
+            increasing_products,
+            start=1,
+        ):
+
+            answer += (
+                f"{index}. {product['product_name']}\n"
+                f"   Growth: "
+                f"+{product.get('growth_percent')}%\n"
+                f"   Stock: "
+                f"{product.get('stock', 0)}\n"
+                f"   Revenue: "
+                f"₹{product.get('recent_revenue', 0)}\n\n"
+            )
+
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 18. FOCUS PRODUCTS
+    # ========================================================
+
+    if "FOCUS_PRODUCTS" in intent_names:
+
+        focus_products = [
+            p
+            for p in products
+            if p.get("status") == "Increasing"
+        ]
+
+
+        focus_products.sort(
+            key=lambda x: (
+                x.get("growth_percent")
+                if x.get("growth_percent") is not None
+                else 0
+            ),
+            reverse=True,
+        )
+
+
+        focus_products = focus_products[:3]
+
+
+        if not focus_products:
+
+            return build_response(
+                "There are currently no strongly increasing "
+                "products to prioritize."
+            )
+
+
+        answer = (
+            "Products you should consider focusing on:\n\n"
+        )
+
+
+        for index, product in enumerate(
+            focus_products,
+            start=1,
+        ):
+
+            recommendation = (
+                get_product_recommendation(
+                    product
+                )
+            )
+
+
+            answer += (
+                f"{index}. {product['product_name']}\n"
+                f"   Growth: "
+                f"+{product.get('growth_percent')}%\n"
+                f"   Stock: "
+                f"{product.get('stock', 0)}\n"
+                f"   Action: "
+                f"{recommendation['action']}\n\n"
+            )
+
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 19. PRODUCT RANKING
+    # ========================================================
+
+    if "PRODUCT_RANKING" in intent_names:
+
+        ranking_intent = next(
+            (
+                intent
+                for intent in intents
+                if intent.get("intent")
+                == "PRODUCT_RANKING"
+            ),
+            {},
+        )
+
+
+        metric = ranking_intent.get(
+            "metric",
+            "revenue",
+        )
+
+
+        direction = ranking_intent.get(
+            "direction",
+            "highest",
+        )
+
+
+        limit = ranking_intent.get(
+            "limit"
+        )
+
+
+        if limit is None:
+
+            limit = 5
+
+
+        # ----------------------------------------------------
+        # Revenue
+        # ----------------------------------------------------
+
+        if metric == "revenue":
+
+            sorted_products = sorted(
+                products,
+                key=lambda x: float(
+                    x.get(
+                        "recent_revenue",
+                        0,
+                    )
+                    or 0
+                ),
+                reverse=(
+                    direction != "lowest"
+                ),
+            )
+
+
+            metric_label = "recent revenue"
+
+
+        # ----------------------------------------------------
+        # Quantity
+        # ----------------------------------------------------
+
+        elif metric == "quantity":
+
+            sorted_products = sorted(
+                products,
+                key=lambda x: int(
+                    x.get(
+                        "recent_quantity",
+                        0,
+                    )
+                    or 0
+                ),
+                reverse=(
+                    direction != "lowest"
+                ),
+            )
+
+
+            metric_label = "recent units sold"
+
+
+        # ----------------------------------------------------
+        # Growth
+        # ----------------------------------------------------
+
+        elif metric == "growth":
+
+            sorted_products = sorted(
+                products,
+                key=lambda x: (
+                    x.get("growth_percent")
+                    if x.get("growth_percent")
+                    is not None
+                    else 0
+                ),
+                reverse=(
+                    direction != "lowest"
+                ),
+            )
+
+
+            metric_label = "recent growth"
+
+
+        else:
+
+            sorted_products = products
+
+            metric_label = "performance"
+
+
+        sorted_products = sorted_products[
+            :limit
+        ]
+
+
+        if not sorted_products:
+
+            return build_response(
+                "No product performance data is currently available."
+            )
+
+
+        # ----------------------------------------------------
+        # Single result
+        # ----------------------------------------------------
+
+        if limit == 1:
+
+            product = sorted_products[0]
+
+
+            if metric == "revenue":
+
+                value = (
+                    f"₹{product.get('recent_revenue', 0)}"
+                )
+
+
+            elif metric == "quantity":
+
+                value = (
+                    f"{product.get('recent_quantity', 0)} units"
+                )
+
+
+            else:
+
+                value = (
+                    f"{product.get('growth_percent')}%"
+                )
+
+
+            direction_text = (
+                "highest"
+                if direction != "lowest"
+                else "lowest"
+            )
+
+
+            answer = (
+                f"{product['product_name']} has the "
+                f"{direction_text} {metric_label}: "
+                f"{value}."
+            )
+
+
+            return build_response(
+                answer
+            )
+
+
+        # ----------------------------------------------------
+        # Multiple results
+        # ----------------------------------------------------
+
+        direction_text = (
+            "highest"
+            if direction != "lowest"
+            else "lowest"
+        )
+
+
+        answer = (
+            f"Products with the {direction_text} "
+            f"{metric_label}:\n\n"
+        )
+
+
+        for index, product in enumerate(
+            sorted_products,
+            start=1,
+        ):
+
+            if metric == "revenue":
+
+                value = (
+                    f"₹{product.get('recent_revenue', 0)}"
+                )
+
+
+            elif metric == "quantity":
+
+                value = (
+                    f"{product.get('recent_quantity', 0)} units"
+                )
+
+
+            else:
+
+                value = (
+                    f"{product.get('growth_percent')}%"
+                )
+
+
+            answer += (
+                f"{index}. "
+                f"{product['product_name']} — "
+                f"{value}\n"
+            )
+
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 20. SALES SUMMARY
+    # ========================================================
+
+    if "SALES_SUMMARY" in intent_names:
+
+        recent_quantity = analytics.get(
+            "recent_quantity",
+            0,
+        )
+
+
+        previous_quantity = analytics.get(
+            "previous_quantity",
+            0,
+        )
+
+
+        quantity_growth = analytics.get(
+            "quantity_growth_percent"
+        )
+
+
+        answer = (
+            f"Sales summary for {business_name} "
+            f"over {period_label}:\n\n"
+            f"Recent units sold: {recent_quantity}\n"
+            f"Previous units sold: {previous_quantity}\n"
+            f"Quantity growth: {quantity_growth}%"
+        )
+
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 21. REVENUE SUMMARY
+    # ========================================================
+
+    if "REVENUE_SUMMARY" in intent_names:
+
+        recent_revenue = analytics.get(
+            "recent_revenue",
+            0,
+        )
+
+
+        previous_revenue = analytics.get(
+            "previous_revenue",
+            0,
+        )
+
+
+        revenue_growth = analytics.get(
+            "revenue_growth_percent"
+        )
+
+
+        answer = (
+            f"Revenue summary for {business_name} "
+            f"over {period_label}:\n\n"
+            f"Recent revenue: ₹{recent_revenue}\n"
+            f"Previous revenue: ₹{previous_revenue}\n"
+            f"Revenue growth: {revenue_growth}%"
+        )
+
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 22. GENERAL RECOMMENDATION
+    # ========================================================
+
+    if "RECOMMENDATION" in intent_names:
+
+        recommendations = (
+            generate_business_recommendations(
+                analytics
+            )
+        )
+
+
+        critical = recommendations.get(
+            "critical",
+            [],
+        )
+
+
+        high = recommendations.get(
+            "high",
+            [],
+        )
+
+
+        medium = recommendations.get(
+            "medium",
+            [],
+        )
+
+
+        if critical:
+
+            answer = (
+                "The business currently has critical issues "
+                "that should be reviewed first:\n\n"
+            )
+
+
+            for item in critical[:5]:
+
+                answer += (
+                    f"• {item['product_name']} — "
+                    f"{item['action']}\n"
+                )
+
+
+            return build_response(
+                answer
+            )
+
+
+        if high:
+
+            answer = (
+                "The following areas require attention:\n\n"
+            )
+
+
+            for item in high[:5]:
+
+                answer += (
+                    f"• {item['product_name']} — "
+                    f"{item['action']}\n"
+                )
+
+
+            return build_response(
+                answer
+            )
+
+
+        if medium:
+
+            answer = (
+                "The business has several growth opportunities:\n\n"
+            )
+
+
+            for item in medium[:5]:
+
+                answer += (
+                    f"• {item['product_name']} — "
+                    f"{item['action']}\n"
+                )
+
+
+            return build_response(
+                answer
+            )
+
+
+        return build_response(
+            "The current product performance is generally stable. "
+            "Continue monitoring sales and inventory."
+        )
+
+
+    # ========================================================
+    # 23. SPECIFIC PRODUCT QUESTION
+    # ========================================================
 
     query_lower = query.lower()
 
-        # =========================================================
-    # HANDLE QUESTIONS ABOUT UNAVAILABLE PROFIT DATA
-    # =========================================================
 
-    profit_keywords = [
-        "profit",
-        "profitability",
-        "profit margin",
-        "net profit",
-        "gross profit",
-        "earnings"
-    ]
+    matched_product = None
 
-    is_profit_question = any(
-        keyword in query_lower
-        for keyword in profit_keywords
-    )
 
-    if is_profit_question:
+    for product in products:
 
-        answer = (
-            "Profit cannot be determined from the available "
-            "business data because the system currently stores "
-            "sales revenue but does not contain product cost "
-            "or profit data."
+        product_name = product.get(
+            "product_name",
+            "",
         )
 
-        return {
-            "business_id": business_id,
-            "business_name": analytics["business_name"],
-            "query": query,
-            "answer": answer,
-            "analytics": analytics,
-            "rag_context": rag_context
-        }
 
-    is_performance_comparison = any(
-        keyword in query_lower
-        for keyword in performance_keywords
-    )
+        if product_name.lower() in query_lower:
 
-    # =========================================================
-    # 7. HANDLE UNSUPPORTED COMPARISON
-    # =========================================================
+            matched_product = product
 
-    if (
-        is_performance_comparison
-        and len(verified_findings) < 2
-    ):
+            break
 
-        answer = (
-            "The available data is insufficient to determine "
-            "which product is performing best because only "
-            "one product has available sales data."
+
+    if matched_product:
+
+        recommendation = (
+            get_product_recommendation(
+                matched_product
+            )
         )
 
-        return {
-            "business_id": business_id,
-            "business_name": analytics["business_name"],
-            "query": query,
-            "answer": answer,
-            "analytics": analytics,
-            "rag_context": rag_context
-        }
 
-    # =========================================================
-    # 8. CREATE GROUNDED LLM PROMPT
-    # =========================================================
+        answer = (
+            f"{matched_product['product_name']} performance:\n\n"
+            f"Period: {period_label}\n"
+            f"Recent units sold: "
+            f"{matched_product.get('recent_quantity', 0)}\n"
+            f"Recent revenue: "
+            f"₹{matched_product.get('recent_revenue', 0)}\n"
+            f"Growth: "
+            f"{matched_product.get('growth_percent')}%\n"
+            f"Stock: "
+            f"{matched_product.get('stock', 0)}\n"
+            f"Status: "
+            f"{matched_product.get('status')}\n\n"
+            f"Recommendation: "
+            f"{recommendation['action']}"
+        )
+
+
+        return build_response(
+            answer
+        )
+
+
+    # ========================================================
+    # 24. GENERAL LLM FALLBACK
+    # ========================================================
 
     prompt = f"""
-You are the Business Agent of an AI Marketing Team.
+You are a business analytics assistant for {business_name}.
 
-Your job is to answer the business owner's question using
-verified business data.
+You must answer the user's question using only the verified
+business information provided below.
 
-{comparison_instruction}
+=========================================================
+TIME PERIOD
+=========================================================
+
+The verified analytics represent:
+
+{period_label}
 
 =========================================================
 VERIFIED BUSINESS ANALYTICS
-SOURCE: PostgreSQL
 =========================================================
 
 {analytics}
 
 =========================================================
-VERIFIED FINDINGS
-=========================================================
-
-{verified_findings}
-
-=========================================================
-BUSINESS KNOWLEDGE
-SOURCE: ChromaDB RAG
+RELEVANT BUSINESS CONTEXT
 =========================================================
 
 {rag_context}
 
 =========================================================
-BUSINESS OWNER QUESTION
+USER QUESTION
 =========================================================
 
 {query}
@@ -249,75 +1612,65 @@ BUSINESS OWNER QUESTION
 STRICT RULES
 =========================================================
 
-1. Use only information provided in the analytics,
-   verified findings, and RAG context.
+1. PostgreSQL analytics is the authoritative source for
+   sales, revenue, growth and stock.
 
-2. PostgreSQL analytics is the authoritative source
-   for numerical sales, revenue, growth and stock data.
+2. Never invent sales numbers.
 
-3. RAG context provides additional business information,
-   such as product descriptions, campaigns and business
-   information.
+3. Never invent revenue.
 
-4. Never invent facts.
+4. Never invent stock levels.
 
-5. Never infer customer demand unless an explicit demand
-   metric is provided.
+5. Never invent growth percentages.
 
-6. Never calculate growth yourself.
+6. Never invent product performance.
 
-7. If growth_percent is null, say that growth cannot
-   be determined because there is no previous baseline.
+7. Never invent business facts.
 
-8. Never call a product "best" unless enough data exists
-   for a valid comparison.
+8. Never treat revenue as profit.
 
-9. If only one product has sales data, do not compare
-   it with other products.
+9. Profit cannot be determined unless cost data exists.
 
-10. If stock is 0, explicitly say that the product is
-    currently out of stock.
+10. Never invent reasons for sales changes.
 
-11. If stock is between 1 and 5, explicitly say that
-    the product has low stock.
+11. Never claim that a campaign caused sales changes unless
+    verified campaign-performance data exists.
 
-12. Never say a product is in stock when stock is 0.
+12. If the available data does not support an answer,
+    clearly say that the required information is not available.
 
-13. Do not invent reasons for sales, revenue, growth,
-    stock levels or customer behavior.
+13. The analytics period is {period_label}.
 
-14. Do not treat campaign information as proof of sales
-    performance.
+14. Keep the answer concise and factual.
 
-15. Use ₹ when referring to revenue or prices.
-
-16. If information is not available, clearly say that
-    it cannot be determined from the available data.
-
-17. Keep the answer concise and business-focused.
-
-=========================================================
-
-Provide the final factual answer to the business owner.
+Give a direct answer to the user's question.
 """
 
-    # =========================================================
-    # 9. GENERATE ANSWER USING LOCAL LLAMA
-    # =========================================================
 
-    answer = await generate_response(
-        prompt
+    try:
+
+        llm_answer = await generate_response(
+            prompt
+        )
+
+    except Exception:
+
+        llm_answer = (
+            "I could not generate an answer from the available "
+            "business data."
+        )
+
+
+    return build_response(
+        llm_answer.strip()
     )
 
-    # =========================================================
-    # 10. RETURN COMPLETE BUSINESS AGENT RESPONSE
-    # =========================================================
 
-    return {
-        "business_id": business_id,
-        "business_name": analytics["business_name"],
-        "query": query,
-        "answer": answer,
-        "analytics": analytics,
-        "rag_context": rag_context
-    }
+# ============================================================
+# BACKWARD COMPATIBILITY
+# ============================================================
+
+# If any other part of the project uses run_business_agent,
+# it will continue to work.
+
+run_business_agent = ask_business_agent

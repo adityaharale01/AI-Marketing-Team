@@ -14,6 +14,16 @@ from app.routers import campaign_content
 from app.routers import ai_interaction
 from app.routers import ai_prediction
 from app.routers.ai_response import router as ai_router
+from app.models import (
+    User,
+    Business,
+    Product,
+    Sale,
+    Campaign,
+    CampaignContent,
+    AIInteraction,
+    AIPrediction
+)
 app = FastAPI(
     title="AI Marketing Team API",
     version="1.0.0"

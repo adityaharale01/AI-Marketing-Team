@@ -132,30 +132,32 @@ def get_business_analytics(
 
         if previous_product_quantity > 0:
             product_growth = (
-                (
-                    recent_product_quantity
-                    - previous_product_quantity
-                )
-                / previous_product_quantity
-            ) * 100
+        (
+            recent_product_quantity
+            - previous_product_quantity
+        )
+        / previous_product_quantity
+    ) * 100
         else:
             product_growth = None
 
-            if previous_product_quantity == 0 and recent_product_quantity > 0:
-                status = "New Sales / No Previous Baseline"
-                performance_label = "Cannot determine growth"
 
-            elif product_growth is not None and product_growth > 10:
-                status = "Increasing"
-                performance_label = "Performing well"
+# Determine product status
+        if previous_product_quantity == 0 and recent_product_quantity > 0:
+            status = "New Sales / No Previous Baseline"
+            performance_label = "Cannot determine growth"
 
-            elif product_growth is not None and product_growth < -10:
-                    status = "Declining"
-                    performance_label = "Needs attention"
+        elif product_growth is not None and product_growth > 10:
+            status = "Increasing"
+            performance_label = "Performing well"
 
-            else:
-               status = "Stable"
-               performance_label = "Stable"
+        elif product_growth is not None and product_growth < -10:
+            status = "Declining"
+            performance_label = "Needs attention"
+
+        else:
+            status = "Stable"
+            performance_label = "Stable"
 
         product_analytics.append({
             "product_id": product.id,
