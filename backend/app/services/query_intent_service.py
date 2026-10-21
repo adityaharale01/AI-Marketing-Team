@@ -1122,20 +1122,14 @@ async def classify_query(
 
         return []
 
-    # Always run deterministic fallback
+    # Prefer deterministic classification when it recognizes the query.
+    # This avoids a second Ollama generation for common analytics requests.
     fallback_intents = fallback_classify_query(query)
+    if fallback_intents:
+        return fallback_intents
 
-    # Run LLM classifier
-    llm_intents = await classify_with_llm(query)
-
-    # Merge both
-    final_intents = merge_intents(
-        llm_intents=llm_intents,
-        fallback_intents=fallback_intents,
-        query=query,
-    )
-
-    return final_intents
+    # Use the LLM only for genuinely open-ended / unsupported phrasing.
+    return await classify_with_llm(query)
 
 
 # ============================================================

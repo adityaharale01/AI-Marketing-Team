@@ -9,6 +9,11 @@ from app.services.business_analytics_service import (
     get_business_analytics,
 )
 
+from app.services.analytics_query_router import (
+    is_overall_growth_query,
+    format_overall_growth_answer,
+)
+
 
 from app.services.time_period_service import (
     detect_time_period,
@@ -123,15 +128,335 @@ async def ask_business_agent(
         [],
     )
 
+    # Deterministic answers for common business questions. These use only
+    # PostgreSQL analytics and existing promotion rules; the LLM is not asked
+    # to invent numeric business facts.
+    q = " ".join((query or "").lower().replace("’", "'").replace("-", " ").split())
+    overall = analytics.get("overall", {}) or {}
+
+    def money(value):
+        return f"₹{float(value or 0):,.2f}"
+
+    def pct(value):
+        return "unavailable (no previous-period baseline)" if value is None else f"{float(value):+.2f}%"
+
+    def product_lines(items, metric="recent_quantity", label="units sold"):
+        if not items:
+            return "No matching products were found in the selected business data."
+        return "\n".join(
+            f"{i}. {p.get('product_name', 'Unknown product')} — {p.get(metric, 0)} {label}; "
+            f"revenue {money(p.get('recent_revenue', 0))}; stock {int(p.get('stock', 0) or 0)}"
+            for i, p in enumerate(items, 1)
+        )
+
+    answer = None
+
+    # Safety-first promotion routing: a question asking what NOT to promote
+    # is an inventory decision, not a request for the general promotion list.
+    # Evaluate it before any broad promotion/recovery opportunity routing.
+    asks_what_not_to_promote = (
+        any(phrase in q for phrase in (
+            "not promote", "shouldn't promote", "should not promote",
+            "avoid promoting", "not advertise", "should not advertise",
+            "shouldn't advertise", "avoid advertising",
+        ))
+        or ("promote" in q and any(word in q for word in ("avoid", "shouldn't", "should not", "not recommend")))
+    )
+    if asks_what_not_to_promote:
+        unavailable = sorted(
+            [p for p in products if int(p.get("stock", 0) or 0) <= 0],
+            key=lambda p: str(p.get("product_name", "" )).lower(),
+        )
+        if unavailable:
+            names = "\n".join(
+                f"- {p.get('product_name', 'Unknown product')} — stock 0"
+                for p in unavailable
+            )
+            answer = (
+                "Do not promote these products until inventory is replenished "
+                f"(current stock from the Product table):\n{names}\n"
+                "This recommendation is based on stock availability. Sales decline alone "
+                "does not prove a product should never be promoted."
+            )
+        else:
+            answer = (
+                "No products are currently out of stock, so the available inventory data "
+                "does not identify a product that must be excluded from promotion for zero stock. "
+                "Review product availability, margins, campaign costs, and campaign results "
+                "before deciding whether to exclude a product for other reasons."
+            )
+
+    # Business identity / scope
+    if answer is not None:
+        pass  # Safety-first routing above has already answered this question.
+    elif ("selected business" in q or "only results for my business" in q or "only this business" in q):
+        answer = f"All figures in this response are filtered to business_id={business_id} ({business_name}); product inventory is read from that business's Product records and sales are filtered by Sale.business_id."
+    elif any(x in q for x in ("business name", "business category", "what is my business")):
+        answer = f"Business: {business_name}. Category: {analytics.get('business_category') or 'unavailable in the business profile data'}. Business ID: {business_id}."
+    elif any(x in q for x in ("how many products", "number of products", "product count")):
+        answer = f"{business_name} has {len(products)} products in the selected business's product table."
+    elif "profit" in q:
+        answer = "Profit cannot be calculated from the available fields because product cost/COGS and operating expenses are not available. Revenue is not the same as profit."
+    elif "why is a product missing" in q or "missing from this report" in q:
+        answer = (f"This report is scoped to business_id={business_id} ({business_name}) and {period_label}. A product can be absent because it belongs to another business, has no Sale rows in the selected period, has zero units in that period, or is excluded by the report's ranking/filter. Current stock comes from the Product table; sales and growth come from Sale records. Check the product's business_id, Sale rows/date range, product_id linkage, and whether the report filters to products with sales. Aggregate data alone cannot identify the exact cause for a specific missing product unless its records are checked.")
+    elif "sales data is missing" in q or "what is unavailable" in q:
+        answer = (f"Data available for business_id={business_id} ({business_name}): product names/categories and current stock from Product records; recorded units/revenue and period comparisons from Sale records. The comparison anchor is the latest recorded sale ({analytics.get('latest_sale_date')}). Unavailable unless separately stored: profit (COGS/expenses), margins, campaign spend and attribution, customer preferences, and product co-purchase/basket evidence. Growth is unavailable when the previous-period baseline is zero. If sales records are absent, sales totals, revenue, growth, top sellers, and sales-based recommendations are unavailable; current inventory may still be available from Product records.")
+    elif any(x in q for x in ("what data was used", "data was used")):
+        answer = (f"This answer uses business_id={business_id} only, product stock from the Product table, and Sale records for that business. "
+                  f"The analytics comparison is anchored to the latest recorded sale ({analytics.get('latest_sale_date')}). "
+                  "Missing baselines are reported as unavailable, not 0% growth. Profit is unavailable without cost/expense fields; customer preferences and product-pair purchase data are not inferred from aggregate sales.")
+    elif "currently in stock" in q or ("each product" in q and "stock" in q):
+        answer = "Current stock from the Product table (not units sold):\n" + ("\n".join(f"- {p.get('product_name', 'Unknown product')}: {int(p.get('stock', 0) or 0)} units" for p in sorted(products, key=lambda p: p.get('product_name', ''))) or "No products found.")
+    # Overall rolling period metrics
+    # Handle combined revenue + units comparisons BEFORE single-metric routes.
+    # Otherwise a broad "last 7 days" revenue branch can return only current totals,
+    # and the intent classifier may incorrectly route a revenue question to SALES_SUMMARY.
+    elif (
+        ("compare" in q or "comparison" in q)
+        and "revenue" in q
+        and any(term in q for term in ("units sold", "units", "quantity"))
+    ):
+        recent_revenue = float(overall.get("recent_revenue", 0) or 0)
+        previous_revenue = float(overall.get("previous_revenue", 0) or 0)
+        revenue_change = recent_revenue - previous_revenue
+        revenue_growth = overall.get("revenue_growth_percent")
+        recent_quantity = int(overall.get("recent_quantity", 0) or 0)
+        previous_quantity = int(overall.get("previous_quantity", 0) or 0)
+        quantity_change = recent_quantity - previous_quantity
+        quantity_growth = overall.get("quantity_growth_percent")
+        answer = (
+            f"Comparison for {business_name} — {period_label} vs previous {period_days} days:\n"
+            f"Revenue: recent {money(recent_revenue)}; previous {money(previous_revenue)}; "
+            f"difference {money(revenue_change)}; change {pct(revenue_growth)}.\n"
+            f"Units sold: recent {recent_quantity}; previous {previous_quantity}; "
+            f"difference {quantity_change:+d} units; change {pct(quantity_growth)}.\n"
+            f"Comparison anchor: latest recorded sale {analytics.get('latest_sale_date')}."
+        )
+    elif "average daily revenue" in q:
+        answer = f"Average daily revenue for {period_label}: {money(analytics.get('average_daily_revenue'))}. Calculation: recent-period revenue ÷ {period_days} calendar days. Period is anchored to latest recorded sale {analytics.get('latest_sale_date')}."
+    elif any(x in q for x in ("highest sales", "sales highest", "highest-selling date", "which date")) and "date" in q:
+        peak = analytics.get("highest_sales_date")
+        answer = f"Highest recorded sales date across available history: {peak['date']} with revenue {money(peak['revenue'])}." if peak else "Unavailable: there are no sales records for this business."
+    elif "this month" in q or "previous month" in q or "last month" in q:
+        m = analytics.get("calendar_month_comparison") or {}
+        answer = (f"Calendar-month comparison (anchored to latest recorded sale): current month revenue {money(m.get('recent_revenue'))}, previous month revenue {money(m.get('previous_revenue'))}; "
+                  f"revenue change {money(m.get('revenue_change'))}, growth {pct(m.get('revenue_growth_percent'))}. "
+                  f"Units: current {m.get('recent_quantity', 0)}, previous {m.get('previous_quantity', 0)}, change {m.get('quantity_change', 0)}; quantity growth {pct(m.get('quantity_growth_percent'))}. "
+                  "Growth formula = (recent − previous) ÷ previous × 100; if previous is zero, growth is unavailable.")
+    elif (
+        ("percentage change" in q or "what percentage" in q or "by what percentage" in q or "quantity growth" in q)
+        and any(term in q for term in ("units", "unit", "quantity", "sold"))
+        and "revenue" not in q
+        and "product" not in q
+    ):
+        recent = int(overall.get("recent_quantity", 0) or 0)
+        previous = int(overall.get("previous_quantity", 0) or 0)
+        change = recent - previous
+        answer = (
+            f"Overall units sold for {period_label}: recent {recent}; previous comparable period {previous}; "
+            f"difference {change:+d} units; percentage change {pct(overall.get('quantity_growth_percent'))}."
+        )
+    elif "revenue contribution" in q or ("contribution of each product" in q and "revenue" in q):
+        ranked = sorted(products, key=lambda p: float(p.get("recent_revenue", 0) or 0), reverse=True)
+        total = sum(float(p.get("recent_revenue", 0) or 0) for p in ranked)
+        if total <= 0:
+            answer = f"Revenue contribution by product is unavailable for {period_label} because total recorded product revenue is zero or missing."
+        else:
+            lines = []
+            for p in ranked:
+                revenue = float(p.get("recent_revenue", 0) or 0)
+                share = revenue / total * 100
+                lines.append(f"- {p.get('product_name', 'Unknown product')}: {money(revenue)} ({share:.2f}% of product revenue)")
+            answer = (f"Revenue contribution by product for {period_label} (total product revenue {money(total)}):\n" + "\n".join(lines) +
+                      "\nShares use each product's recent revenue divided by the sum of recent revenue across the returned product records. This may differ from overall revenue if products without linked sales are excluded.")
+    elif "previous 7 days" in q and "revenue" in q and not any(term in q for term in ("compare", "change", "growth", "percentage", "difference")):
+        answer = f"Revenue in the previous comparable 7-day period: {money(overall.get('previous_revenue'))}. Recent-period revenue was {money(overall.get('recent_revenue'))}."
+    elif (
+        "revenue change" in q
+        or ("change in rupees" in q and "revenue" in q)
+        or ("percentage change" in q and "revenue" in q)
+        or ("difference in rupees" in q and "revenue" in q)
+    ):
+        recent = float(overall.get("recent_revenue", 0) or 0)
+        previous = float(overall.get("previous_revenue", 0) or 0)
+        answer = f"Revenue change for {period_label}: recent revenue {money(recent)}; previous revenue {money(previous)}; change {money(recent - previous)}; growth {pct(overall.get('revenue_growth_percent'))}."
+    elif (
+        "revenue growth" in q
+        or "quantity growth" in q
+        or "performing better" in q
+        or "performing worse" in q
+        or "overall business performance" in q
+        or "performing overall" in q
+        or "how is my business performing" in q
+        or "how is the business performing" in q
+        or "business performance overall" in q
+        or "overall performance" in q
+        or "business doing overall" in q
+    ):
+        rg, qg = overall.get("revenue_growth_percent"), overall.get("quantity_growth_percent")
+        direction = "better" if rg is not None and qg is not None and rg > 0 and qg > 0 else "worse" if rg is not None and qg is not None and rg < 0 and qg < 0 else "mixed or inconclusive"
+        answer = (f"Business performance — {period_label} vs preceding {period_days} days (latest sale anchor {analytics.get('latest_sale_date')}):\n"
+                  f"Revenue: recent {money(overall.get('recent_revenue'))}; previous {money(overall.get('previous_revenue'))}; change {money(float(overall.get('recent_revenue', 0) or 0)-float(overall.get('previous_revenue', 0) or 0))}; growth {pct(rg)}.\n"
+                  f"Quantity: recent {overall.get('recent_quantity', 0)} units; previous {overall.get('previous_quantity', 0)} units; change {int(overall.get('recent_quantity', 0) or 0)-int(overall.get('previous_quantity', 0) or 0)} units; growth {pct(qg)}.\n"
+                  "Formula for each growth rate: (recent total − previous total) ÷ previous total × 100. "
+                  f"Overall direction: {direction}. A growth rate is unavailable when the previous total is zero.")
+    elif "total revenue" in q or ("revenue" in q and "last 7 days" in q):
+        answer = f"Total revenue for {period_label}: {money(overall.get('recent_revenue'))}. Units sold: {overall.get('recent_quantity', 0)}."
+    elif "how many units" in q or "units did" in q or "total quantity" in q:
+        answer = f"Units sold for {period_label}: {overall.get('recent_quantity', 0)}. Previous comparable period: {overall.get('previous_quantity', 0)} units."
+    # Inventory
+    elif "out of stock" in q or "stock is zero" in q or "stock zero" in q:
+        items = [p for p in products if int(p.get("stock", 0) or 0) == 0]
+        answer = "Products currently out of stock (current Product table):\n" + ("\n".join(f"- {p['product_name']} — 0 units" for p in items) if items else "None.")
+        if "promot" in q: answer += "\nDo not promote these products until stock is replenished."
+    elif "low inventory" in q or "low stock" in q:
+        items = sorted([p for p in products if 0 < int(p.get("stock", 0) or 0) <= 5], key=lambda p: int(p.get("stock", 0) or 0))
+        answer = "Low inventory threshold used: 1–5 units.\n" + ("\n".join(f"- {p['product_name']}: {p['stock']} units" for p in items) if items else "No products have 1–5 units in stock.")
+    elif "best-selling" in q and ("restock" in q or "restocking" in q):
+        items = sorted([p for p in products if 0 < int(p.get("stock", 0) or 0) <= 5], key=lambda p: int(p.get("recent_quantity", 0) or 0), reverse=True)
+        answer = ("Best-selling products that may need restocking (low-stock threshold: 1–5 units):\n" + product_lines(items[:5])) if items else "There are currently no products with low stock."
+    elif "high stock" in q and "declining" in q:
+        items = [p for p in products if p.get('growth_percent') is not None and float(p['growth_percent']) < -10 and int(p.get('stock', 0) or 0) > 30]
+        answer = "Products with stock above 30 units and quantity growth below −10%: (thresholds are explicit screening rules)\n" + product_lines(items)
+    # Product performance
+    elif "no sales" in q:
+        items = [p for p in products if int(p.get('recent_quantity', 0) or 0) == 0]
+        answer = f"Products with zero recorded units in {period_label}:\n" + ("\n".join(f"- {p['product_name']} (stock {p.get('stock', 0)})" for p in items) if items else "Every listed product has at least one recorded unit sold in this period.")
+    elif "new seller" in q or "no previous sales" in q or "no previous-period baseline" in q:
+        items = [p for p in products if int(p.get('previous_quantity', 0) or 0) == 0 and int(p.get('recent_quantity', 0) or 0) > 0]
+        answer = "Products with recent sales but zero previous-period units (growth % is undefined):\n" + product_lines(items)
+    elif "biggest revenue decline" in q or "revenue decline" in q:
+        eligible = [p for p in products if p.get("revenue_growth_percent") is not None]
+        items = sorted(eligible, key=lambda p: float(p.get("recent_revenue", 0) or 0) - float(p.get("previous_revenue", 0) or 0))
+        if items:
+            p = items[0]
+            answer = f"Largest product revenue decline: {p['product_name']} — change {money(float(p.get('recent_revenue', 0) or 0)-float(p.get('previous_revenue', 0) or 0))}; previous revenue {money(p.get('previous_revenue'))}, recent revenue {money(p.get('recent_revenue'))}, revenue growth {pct(p.get('revenue_growth_percent'))}."
+        else:
+            answer = "Unavailable: no product has a positive previous-period revenue baseline, so revenue decline cannot be calculated."
+    elif "largest increase in units" in q or "largest increase" in q:
+        eligible = [p for p in products if p.get('growth_percent') is not None]
+        items = sorted(eligible, key=lambda p: int(p.get('recent_quantity', 0) or 0)-int(p.get('previous_quantity', 0) or 0), reverse=True)
+        if items:
+            p=items[0]; answer=f"Largest increase in units: {p['product_name']} — {int(p.get('recent_quantity',0))-int(p.get('previous_quantity',0)):+d} units ({p.get('previous_quantity',0)} previous → {p.get('recent_quantity',0)} recent)."
+        else: answer="Unavailable: no products have a valid previous-period quantity baseline."
+    elif "compare" in q and " and " in q and any(p.get('product_name','').lower() in q for p in products):
+        matches = [p for p in products if p.get('product_name','').lower() in q]
+        if len(matches) >= 2:
+            answer = "Product comparison for " + period_label + ":\n" + "\n".join(f"- {p['product_name']}: {p.get('recent_quantity',0)} units (previous {p.get('previous_quantity',0)}), revenue {money(p.get('recent_revenue'))}, quantity growth {pct(p.get('growth_percent'))}, stock {p.get('stock',0)}" for p in matches[:2])
+    elif any(p.get('product_name','').lower() in q for p in products):
+        matches = [p for p in products if p.get('product_name','').lower() in q]
+        if matches:
+            p=matches[0]
+            answer = f"{p['product_name']} — {period_label}: {p.get('recent_quantity',0)} units sold (previous period {p.get('previous_quantity',0)}), recent revenue {money(p.get('recent_revenue'))}, quantity growth {pct(p.get('growth_percent'))}, current stock {p.get('stock',0)}. Growth uses (recent units − previous units) ÷ previous units × 100; zero previous units means no valid growth percentage."
+    elif "selling best by quantity" in q or "highest revenue" in q or "generate the highest revenue" in q or "highest revenue" in q:
+        metric = "recent_revenue" if "revenue" in q else "recent_quantity"
+        label = "revenue" if metric == "recent_revenue" else "units sold"
+        items = sorted(products, key=lambda p: float(p.get(metric,0) or 0), reverse=True)[:5]
+        answer = f"Top products by {label} for {period_label}:\n" + product_lines(items, metric, label)
+    elif any(phrase in q for phrase in ("needs more attention", "need more attention", "product needs attention", "business owner")):
+        ranked = sorted(
+            products,
+            key=lambda p: (
+                0 if int(p.get("stock", 0) or 0) <= 0 else 1,
+                float(p.get("growth_percent", 0) if p.get("growth_percent") is not None else 0),
+                -float(p.get("recent_revenue", 0) or 0),
+            ),
+        )
+        if not ranked:
+            answer = "Cannot identify a product needing attention because no product analytics are available."
+        else:
+            p = ranked[0]
+            growth = pct(p.get("growth_percent"))
+            stock = int(p.get("stock", 0) or 0)
+            answer = (
+                f"Priority for review: {p.get('product_name', 'Unknown product')}. Recent units sold: {p.get('recent_quantity', 0)}; "
+                f"previous-period units: {p.get('previous_quantity', 0)}; quantity growth: {growth}; "
+                f"recent revenue: {money(p.get('recent_revenue'))}; current stock: {stock}. "
+                + ("Stock is zero, so first verify replenishment and availability; do not promote it until stock is restored. " if stock <= 0 else "Review its sales trend, stock, margin, and promotion results before deciding on an action. ")
+                + "This is a screening priority based on stock and quantity trend, not proof of the cause of the decline."
+            )
+    elif "compare the performance of each product" in q or "compare performance of each product" in q or "performance of each product" in q:
+        ranked = sorted(products, key=lambda p: float(p.get("recent_revenue", 0) or 0), reverse=True)
+        if not ranked:
+            answer = "Product comparison is unavailable because no product analytics were returned."
+        else:
+            lines = []
+            for p in ranked:
+                lines.append(
+                    f"- {p.get('product_name', 'Unknown product')}: units {p.get('recent_quantity', 0)} recent vs {p.get('previous_quantity', 0)} previous "
+                    f"(change {int(p.get('recent_quantity', 0) or 0) - int(p.get('previous_quantity', 0) or 0):+d}; quantity growth {pct(p.get('growth_percent'))}); "
+                    f"revenue {money(p.get('recent_revenue'))} recent vs {money(p.get('previous_revenue'))} previous "
+                    f"(revenue growth {pct(p.get('revenue_growth_percent'))}); stock {int(p.get('stock', 0) or 0)}"
+                )
+            answer = f"Per-product comparison for {period_label} vs the previous comparable period, sorted by recent revenue:\n" + "\n".join(lines)
+    elif "declining sales" in q:
+        items = sorted([p for p in products if p.get('growth_percent') is not None and float(p['growth_percent']) < 0], key=lambda p: float(p['growth_percent']))
+        answer = f"Products with negative quantity growth for {period_label}:\n" + product_lines(items)
+    elif "increasing sales" in q or "increasing products" in q or "growing products" in q:
+        items = sorted([p for p in products if p.get('growth_percent') is not None and float(p['growth_percent']) > 0], key=lambda p: float(p['growth_percent']), reverse=True)
+        answer = f"Products with positive quantity growth for {period_label} (new sellers without a baseline are listed separately):\n" + product_lines(items)
+    # Marketing planning: evidence-bound recommendations
+    elif "promotion budget" in q or "budget" in q and "promot" in q:
+        answer = (f"A defensible budget cannot be calculated from sales and stock alone: margins, campaign costs, conversion rates, and budget constraints are missing. "
+                  f"For a controlled pilot, set a budget cap with the owner, track spend against attributed revenue and gross margin, and stop if the agreed cap is reached. Recent revenue for {period_label} is {money(overall.get('recent_revenue'))}; it is context, not profit or a safe budget by itself.")
+    elif "bundled" in q or "bundle" in q:
+        answer = "The available data shows product-level totals, not which products were bought together. I cannot claim a bundle is evidence-based without order/basket-level records containing multiple products per order. Share basket/order IDs to identify frequently co-purchased products; until then, test only a clearly labelled pilot and measure results."
+    elif "seven-day marketing plan" in q or "7-day marketing plan" in q or "seven day marketing plan" in q:
+        rising = sorted([p for p in products if p.get('growth_percent') is not None and float(p['growth_percent']) > 10 and int(p.get('stock',0) or 0)>5], key=lambda p: float(p['growth_percent']), reverse=True)[:3]
+        falling = sorted([p for p in products if p.get('growth_percent') is not None and float(p['growth_percent']) < -10 and int(p.get('stock',0) or 0)>5], key=lambda p: float(p['growth_percent']))[:3]
+        answer = ("Seven-day plan based on observed sales and current stock:\nDay 1: Review stock and exclude zero-stock products.\nDay 2: Feature a growing product with stock available: " + (rising[0]['product_name'] if rising else "no qualifying product; review data") + ".\nDay 3: Publish a product-focused post with factual price/availability.\nDay 4: Test a small bundle only as an experiment (basket evidence unavailable).\nDay 5: Test a recovery offer for a declining, in-stock product: " + (falling[0]['product_name'] if falling else "none qualifies") + ".\nDay 6: Check campaign reach, clicks, attributed orders and spend.\nDay 7: Compare campaign-period units/revenue with baseline and keep only measured winners. Do not claim causal lift without campaign attribution.")
+    elif "weekend promotion" in q or "weekend" in q and "promotion" in q:
+        candidates = sorted([p for p in products if p.get('growth_percent') is not None and float(p['growth_percent']) > 10 and int(p.get('stock',0) or 0)>5], key=lambda p: float(p['growth_percent']), reverse=True)[:2]
+        answer = "Weekend promotion based on positive quantity growth and stock above 5 units: " + (", ".join(f"{p['product_name']} ({p['growth_percent']}% growth, stock {p['stock']}, {p['recent_quantity']} recent units)" for p in candidates) if candidates else "no products meet the screening rule; review stock and sales data first") + ". Avoid advertising products with zero stock; monitor attributed orders and revenue during the test."
+    elif "not discount" in q or "avoid discount" in q:
+        items = sorted([p for p in products if p.get('growth_percent') is not None and float(p['growth_percent']) > 10 and int(p.get('stock',0) or 0) <= 5], key=lambda p: float(p['growth_percent']), reverse=True)
+        answer = "Avoid discounting without further review for products already growing strongly but with stock at or below 5 units: " + (", ".join(p['product_name'] for p in items) if items else "no product meets this rule") + ". This is an inventory/sales screening rule, not proof of price elasticity or customer preference."
+
+    if answer is not None:
+        return {
+            "business_id": business_id, "business_name": business_name,
+            "query": query, "answer": answer,
+            "intents": [{"intent": "DETERMINISTIC_BUSINESS_ANSWER"}],
+            "time_period": {"period_days": period_days, "period_label": period_label, "explicit": period_explicit},
+            "analytics": analytics, "rag_context": "",
+        }
+
+    # Deterministic aggregate-growth routing must happen before the LLM
+    # classifier. This prevents an aggregate question from being mistaken for
+    # a request to list increasing products, and avoids an unnecessary Ollama
+    # call for a query whose answer is already calculable from PostgreSQL.
+    if is_overall_growth_query(query):
+        return {
+            "business_id": business_id,
+            "business_name": business_name,
+            "query": query,
+            "answer": format_overall_growth_answer(analytics, period_label),
+            "intents": [{
+                "intent": "OVERALL_GROWTH",
+                "metric": "revenue_and_quantity",
+                "direction": "comparison",
+                "limit": None,
+                "product_name": None,
+            }],
+            "time_period": {
+                "period_days": period_days,
+                "period_label": period_label,
+                "explicit": period_explicit,
+            },
+            "analytics": analytics,
+            "rag_context": "",
+        }
 
     # ========================================================
     # 3. BUILD PRODUCT GROUPS
     # ========================================================
 
+    # Use only the products calculated by the authoritative PostgreSQL analytics
+    # for this request's detected period. Do not recalculate growth in the agent.
     increasing_products = [
-        p
-        for p in products
-        if p.get("status") == "Increasing"
+        p for p in products
+        if p.get("growth_percent") is not None
+        and float(p.get("growth_percent")) > 0
     ]
 
 
@@ -225,6 +550,104 @@ async def ask_business_agent(
             "analytics": analytics,
             "rag_context": rag_context,
         }
+
+
+
+    # ========================================================
+    # GENERAL MULTI-CONDITION PRODUCT ANALYSIS
+    # Runs before single-intent handlers so combined questions
+    # (e.g. strong sales + stockout risk) are not reduced to one
+    # classifier label. Uses verified PostgreSQL analytics only.
+    # ========================================================
+    normalized_query = " ".join((query or "").lower().replace("-", " ").split())
+    asks_current_stock = any(term in normalized_query for term in (
+        "currently in stock", "current stock", "stock level", "stock levels",
+        "how many units", "inventory level", "inventory levels",
+        "available stock", "units in stock",
+    ))
+    asks_stock_and_sales_risk = (
+        any(term in normalized_query for term in (
+            "sell well", "selling well", "best selling", "strong sales",
+            "high sales", "popular", "high demand", "top selling",
+        ))
+        and any(term in normalized_query for term in (
+            "run out", "running out", "stockout", "stock out",
+            "low stock", "might run out", "soon", "restock",
+        ))
+    )
+
+    if asks_stock_and_sales_risk:
+        candidates = []
+        already_out = []
+        for product in products:
+            try:
+                stock = int(product.get("stock") or 0)
+                sold = int(product.get("recent_quantity") or 0)
+            except (TypeError, ValueError):
+                continue
+            name = product.get("product_name") or "Unnamed product"
+            if stock <= 0:
+                if sold > 0:
+                    already_out.append((name, sold))
+                continue
+            if sold <= 0:
+                continue
+            # Conservative heuristic: positive stock at or below 20% of
+            # recent units sold, with a minimum low-stock floor of 5 units.
+            # This is a screening signal, not a forecast of a stockout date.
+            threshold = max(5, int(sold * 0.20))
+            if stock <= threshold:
+                candidates.append((name, stock, sold, threshold))
+
+        if candidates or already_out:
+            lines = [
+                f"Products with strong recent sales and possible stock risk "
+                f"({period_label}):"
+            ]
+            if candidates:
+                lines.append("")
+                for name, stock, sold, threshold in sorted(
+                    candidates, key=lambda item: (item[1] / max(item[2], 1), item[1])
+                )[:10]:
+                    lines.append(
+                        f"• {name}: {sold} units sold, {stock} units in stock. "
+                        f"Review replenishment; stock is at or below the screening "
+                        f"threshold of {threshold} units."
+                    )
+            if already_out:
+                lines.append("")
+                lines.append("Already out of stock (not merely at risk):")
+                for name, sold in sorted(already_out, key=lambda item: -item[1])[:10]:
+                    lines.append(
+                        f"• {name}: {sold} units sold in the period, current stock is 0."
+                    )
+            lines.append(
+                "\nNote: this is a stock-risk screening based on current stock and "
+                "recent units sold, not a forecast of the date stock will run out."
+            )
+            return build_response("\n".join(lines))
+
+        return build_response(
+            f"I found no products meeting both conditions in {period_label}: "
+            "positive recent sales and stock at or below the screening threshold. "
+            "Products with zero stock and products with no recent sales are excluded "
+            "from the at-risk group."
+        )
+
+    if asks_current_stock:
+        if not products:
+            return build_response(
+                "No product inventory records are available for this business."
+            )
+        inventory_lines = ["Current inventory by product (from the product records):"]
+        for product in sorted(
+            products, key=lambda item: (item.get("product_name") or "").lower()
+        ):
+            inventory_lines.append(
+                f"• {product.get('product_name', 'Unnamed product')}: "
+                f"{product.get('stock', 'unknown')} units"
+            )
+        return build_response("\n".join(inventory_lines))
 
 
     # ========================================================
@@ -779,24 +1202,13 @@ async def ask_business_agent(
 
 
         answer = (
-            "The following products are currently "
-            "out of stock:\n\n"
+            f"Products currently out of stock for {business_name}:\n\n"
         )
 
-
-        for index, product in enumerate(
-            out_of_stock_products,
-            start=1,
-        ):
-
+        for index, product in enumerate(out_of_stock_products, start=1):
             answer += (
                 f"{index}. {product['product_name']}\n"
-                f"   Growth: "
-                f"{product.get('growth_percent')}%\n"
-                f"   Recent quantity: "
-                f"{product.get('recent_quantity', 0)} units\n"
-                f"   Recent revenue: "
-                f"₹{product.get('recent_revenue', 0)}\n\n"
+                f"   Current stock: {int(product.get('stock', 0) or 0)}\n\n"
             )
 
 
@@ -969,7 +1381,8 @@ async def ask_business_agent(
 
 
         answer = (
-            "Products with declining sales:\n\n"
+            f"Products with declining sales for {period_label} "
+            f"compared with the preceding {period_days} days:\n\n"
         )
 
 
@@ -1003,7 +1416,9 @@ async def ask_business_agent(
         if not increasing_products:
 
             return build_response(
-                "There are currently no increasing products."
+                f"No products have positive quantity growth for {period_label} "
+                f"compared with the preceding {period_days} days, or the "
+                "previous-period baseline is unavailable."
             )
 
 
@@ -1018,7 +1433,8 @@ async def ask_business_agent(
 
 
         answer = (
-            "Products showing increasing sales:\n\n"
+            f"Products showing increasing sales for {period_label} "
+            f"compared with the preceding {period_days} days:\n\n"
         )
 
 
@@ -1027,14 +1443,15 @@ async def ask_business_agent(
             start=1,
         ):
 
+            growth = float(product["growth_percent"])
             answer += (
                 f"{index}. {product['product_name']}\n"
-                f"   Growth: "
-                f"+{product.get('growth_percent')}%\n"
-                f"   Stock: "
-                f"{product.get('stock', 0)}\n"
-                f"   Revenue: "
-                f"₹{product.get('recent_revenue', 0)}\n\n"
+                f"   Quantity growth: +{growth:.2f}%\n"
+                f"   Units sold in recent period: "
+                f"{product.get('recent_quantity', 0)}\n"
+                f"   Current stock: {int(product.get('stock', 0) or 0)}\n"
+                f"   Revenue in recent period: "
+                f"₹{float(product.get('recent_revenue', 0) or 0):,.2f}\n\n"
             )
 
 
@@ -1349,35 +1766,29 @@ async def ask_business_agent(
 
     if "SALES_SUMMARY" in intent_names:
 
-        recent_quantity = analytics.get(
-            "recent_quantity",
-            0,
+        # Overall totals are nested under analytics["overall"].
+        overall = analytics.get("overall", {}) or {}
+
+        recent_quantity = overall.get("recent_quantity", 0) or 0
+        previous_quantity = overall.get("previous_quantity", 0) or 0
+        quantity_change = int(recent_quantity or 0) - int(previous_quantity or 0)
+        quantity_growth = overall.get("quantity_growth_percent")
+        growth_text = (
+            f"{float(quantity_growth):+.2f}%"
+            if quantity_growth is not None
+            else "unavailable (no previous-period baseline)"
         )
-
-
-        previous_quantity = analytics.get(
-            "previous_quantity",
-            0,
-        )
-
-
-        quantity_growth = analytics.get(
-            "quantity_growth_percent"
-        )
-
 
         answer = (
-            f"Sales summary for {business_name} "
-            f"over {period_label}:\n\n"
+            f"Sales summary for {business_name} over {period_label}:\n\n"
             f"Recent units sold: {recent_quantity}\n"
-            f"Previous units sold: {previous_quantity}\n"
-            f"Quantity growth: {quantity_growth}%"
+            f"Previous comparable-period units sold: {previous_quantity}\n"
+            f"Change in units: {quantity_change:+d}\n"
+            f"Quantity growth: {growth_text}\n"
+            f"Comparison anchor: latest recorded sale {analytics.get('latest_sale_date')}."
         )
 
-
-        return build_response(
-            answer
-        )
+        return build_response(answer)
 
 
     # ========================================================
@@ -1386,38 +1797,31 @@ async def ask_business_agent(
 
     if "REVENUE_SUMMARY" in intent_names:
 
-        recent_revenue = analytics.get(
-            "recent_revenue",
-            0,
+        # Overall totals are nested under analytics["overall"].
+        overall = analytics.get("overall", {}) or {}
+
+        recent_revenue = float(overall.get("recent_revenue", 0) or 0)
+        previous_revenue = float(overall.get("previous_revenue", 0) or 0)
+        revenue_change = recent_revenue - previous_revenue
+        revenue_growth = overall.get("revenue_growth_percent")
+        growth_text = (
+            f"{float(revenue_growth):+.2f}%"
+            if revenue_growth is not None
+            else "unavailable (no previous-period baseline)"
         )
-
-
-        previous_revenue = analytics.get(
-            "previous_revenue",
-            0,
-        )
-
-
-        revenue_growth = analytics.get(
-            "revenue_growth_percent"
-        )
-
 
         answer = (
-            f"Revenue summary for {business_name} "
-            f"over {period_label}:\n\n"
-            f"Recent revenue: ₹{recent_revenue}\n"
-            f"Previous revenue: ₹{previous_revenue}\n"
-            f"Revenue growth: {revenue_growth}%"
+            f"Revenue summary for {business_name} over {period_label}:\n\n"
+            f"Recent revenue: ₹{recent_revenue:,.2f}\n"
+            f"Previous comparable-period revenue: ₹{previous_revenue:,.2f}\n"
+            f"Revenue change: ₹{revenue_change:+,.2f}\n"
+            f"Revenue growth: {growth_text}\n"
+            f"Comparison anchor: latest recorded sale {analytics.get('latest_sale_date')}."
         )
 
-
-        return build_response(
-            answer
-        )
+        return build_response(answer)
 
 
-    # ========================================================
     # 22. GENERAL RECOMMENDATION
     # ========================================================
 
@@ -1527,13 +1931,12 @@ async def ask_business_agent(
 
     for product in products:
 
-        product_name = product.get(
-            "product_name",
-            "",
-        )
+        product_name = str(product.get("product_name") or "").strip()
 
 
-        if product_name.lower() in query_lower:
+        # Ignore malformed product rows with no name; an empty string would
+        # otherwise match every query and select the wrong product.
+        if product_name and product_name.strip() and product_name.strip().lower() in query_lower:
 
             matched_product = product
 
@@ -1542,10 +1945,10 @@ async def ask_business_agent(
 
     if matched_product:
 
-        recommendation = (
-            get_product_recommendation(
-                matched_product
-            )
+        recommendation = get_product_recommendation(matched_product) or {}
+        recommendation_action = recommendation.get(
+            "action",
+            recommendation.get("recommended_action", "Review recent sales, stock, and pricing before taking action."),
         )
 
 
@@ -1563,7 +1966,7 @@ async def ask_business_agent(
             f"Status: "
             f"{matched_product.get('status')}\n\n"
             f"Recommendation: "
-            f"{recommendation['action']}"
+            f"{recommendation_action}"
         )
 
 
