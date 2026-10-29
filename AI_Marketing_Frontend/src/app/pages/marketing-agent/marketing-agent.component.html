@@ -1,0 +1,331 @@
+<div class="marketing-shell">
+  <aside class="marketing-sidebar">
+    <a class="brand" routerLink="/dashboard"
+      ><span class="brand-mark">✳</span
+      ><span
+        >crumbwise<span class="dot">.</span
+        ><small>AI MARKETING TEAM</small></span
+      ></a
+    >
+    <div class="nav-caption">WORKSPACE</div>
+    <a class="nav-link" routerLink="/dashboard">▦ &nbsp; Dashboard</a>
+    <a class="nav-link" routerLink="/workspace"
+      >▤ &nbsp; Products & campaigns</a
+    >
+    <a class="nav-link active" routerLink="/marketing-agent"
+      >✧ &nbsp; Marketing Agent</a
+    >
+    <div class="sidebar-note">
+      <span>✦</span><strong>From idea to campaign.</strong>
+      <p>Plan, create, review and demo-publish in one place.</p>
+    </div>
+    <div class="sidebar-user">
+      <span class="avatar">✿</span>
+      <div>
+        <strong>{{ platform.user?.name || "Business owner" }}</strong
+        ><small>{{
+          platform.activeBusiness?.name || "No business selected"
+        }}</small>
+      </div>
+      <button (click)="platform.logout()" title="Log out">↪</button>
+    </div>
+  </aside>
+
+  <main class="marketing-main">
+    <header class="topbar">
+      <div>
+        <span class="eyebrow">YOUR AI MARKETING TEAM</span>
+        <h1>Marketing <em>studio.</em></h1>
+        <p>Turn a business goal into a ready-to-review social campaign.</p>
+      </div>
+      <div class="business-chip">
+        <span>✿</span>
+        <div>
+          <small>ACTIVE BUSINESS</small
+          ><strong>{{
+            platform.activeBusiness?.name || "Select a business"
+          }}</strong>
+        </div>
+      </div>
+    </header>
+
+    <section class="intro-banner">
+      <div class="intro-icon">✧</div>
+      <div>
+        <span>ONE WORKFLOW · FOUR OUTPUTS</span>
+        <h2>Strategy, caption, hashtags and poster.</h2>
+        <p>
+          Uses your saved business profile and product catalogue with your local
+          AI model.
+        </p>
+      </div>
+    </section>
+
+    <div class="notice error" *ngIf="error">{{ error }}</div>
+    <div class="notice success" *ngIf="notice">✓ {{ notice }}</div>
+
+    <section class="studio-grid">
+      <article class="panel campaign-form">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">STEP 01</span>
+            <h2>Campaign brief</h2>
+            <p>Tell the agent what you want to achieve.</p>
+          </div>
+          <span class="step-badge">✎</span>
+        </div>
+        <form (ngSubmit)="generate()">
+          <label
+            >Campaign name<input
+              name="campaign_name"
+              [(ngModel)]="form.campaign_name"
+              required
+              minlength="2"
+              maxlength="150"
+              placeholder="Weekend Spotlight"
+          /></label>
+          <label
+            >Marketing goal<textarea
+              name="goal"
+              [(ngModel)]="form.goal"
+              required
+              minlength="3"
+              rows="3"
+              placeholder="What should this campaign achieve?"
+            ></textarea>
+          </label>
+          <div class="field-row">
+            <label
+              >Social platform<select
+                name="platform"
+                [(ngModel)]="form.platform"
+              >
+                <option>Instagram</option>
+                <option>Facebook</option>
+                <option>WhatsApp</option>
+                <option>LinkedIn</option>
+              </select></label
+            >
+            <label
+              >Budget (₹)<input
+                name="budget"
+                type="number"
+                min="0"
+                [(ngModel)]="form.budget"
+                placeholder="Optional"
+            /></label>
+          </div>
+          <label
+            >Target audience<input
+              name="target_audience"
+              [(ngModel)]="form.target_audience"
+              placeholder="e.g. Local customers and families"
+          /></label>
+          <label
+            >Offer or key message <span class="optional">(optional)</span
+            ><textarea
+              name="offer"
+              [(ngModel)]="form.offer"
+              rows="2"
+              placeholder="Only enter an offer that your business actually provides"
+            ></textarea>
+          </label>
+          <button
+            class="primary-button"
+            type="submit"
+            [disabled]="loading || !platform.activeBusiness"
+          >
+            <span *ngIf="!loading">✧</span
+            >{{
+              loading ? "Creating campaign…" : "Generate marketing campaign"
+            }}
+            <span *ngIf="!loading">↗</span>
+          </button>
+          <p class="form-footnote">
+            Generation may take a little time while the local model responds.
+          </p>
+        </form>
+      </article>
+
+      <section class="results-column" *ngIf="result; else emptyState">
+        <article class="panel strategy-panel">
+          <div class="result-heading">
+            <div class="result-icon purple">✦</div>
+            <div>
+              <span class="eyebrow">STEP 02 · AI STRATEGY</span>
+              <h2>{{ result.campaign_name }}</h2>
+            </div>
+            <span
+              class="status"
+              [class.published]="result.status === 'active'"
+              >{{ result.status }}</span
+            >
+          </div>
+          <div class="strategy-copy">{{ result.strategy }}</div>
+          <div class="meta-row">
+            <span>◎ {{ result.platform }}</span
+            ><span>◉ {{ result.target_audience }}</span>
+          </div>
+        </article>
+
+        <article class="panel poster-panel">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">STEP 03 · POSTER CONCEPT</span>
+              <h2>Your campaign creative</h2>
+              <p>Editable SVG-style promotional concept, ready to download.</p>
+            </div>
+            <span class="result-icon">▧</span>
+          </div>
+          <div *ngIf="posterImageDataUrl" class="generated-image-wrap">
+            <div class="creative-poster">
+              <img
+                [src]="posterImageDataUrl"
+                alt="AI-generated product artwork"
+                class="generated-poster-image"
+              />
+              <div class="creative-shade"></div>
+              <div class="creative-copy">
+                <span class="creative-business">{{
+                  result.business.name
+                }}</span>
+                <span class="creative-kicker"
+                  >MADE FRESH. MADE TO DELIGHT.</span
+                >
+                <h3>{{ result.poster.headline }}</h3>
+                <p>{{ result.poster.subtitle }}</p>
+                <span class="creative-cta"
+                  >{{ result.poster.call_to_action || "ORDER TODAY" }}
+                  <b>↗</b></span
+                >
+              </div>
+              <span class="creative-brand">CRUM BWISE · CAMPAIGN CREATIVE</span>
+            </div>
+            <p class="content-note">
+              AI-generated product artwork with clear, editable campaign text
+              layered on top.
+            </p>
+          </div>
+          <div *ngIf="!posterImageDataUrl" class="poster-preview">
+            <div class="poster-orbit"></div>
+            <div class="poster-business">{{ result.business.name }}</div>
+            <div class="poster-main">{{ result.poster.headline }}</div>
+            <div class="poster-sub">{{ result.poster.subtitle }}</div>
+            <div class="poster-cta">{{ result.poster.call_to_action }}</div>
+            <div class="poster-foot">CAMPAIGN CONCEPT · REVIEW BEFORE USE</div>
+          </div>
+          <div class="poster-actions">
+            <button
+              class="primary-button"
+              type="button"
+              (click)="generatePosterArtwork()"
+              [disabled]="posterGenerating"
+            >
+              {{
+                posterGenerating
+                  ? "Generating artwork…"
+                  : posterImageDataUrl
+                    ? "Regenerate AI artwork"
+                    : "✧ Generate AI artwork"
+              }}
+            </button>
+            <button
+              class="secondary-button"
+              type="button"
+              (click)="downloadPoster()"
+            >
+              ↓ Download poster
+            </button>
+          </div>
+        </article>
+
+        <article class="panel content-panel">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">STEP 04 · SOCIAL COPY</span>
+              <h2>Caption & hashtags</h2>
+            </div>
+            <span class="result-icon">☷</span>
+          </div>
+          <label class="output-label">Caption</label>
+          <p class="caption-copy">{{ result.caption }}</p>
+          <button class="text-button" (click)="copyText(result.caption)">
+            Copy caption
+          </button>
+          <div class="output-divider"></div>
+          <label class="output-label">Hashtags</label>
+          <div class="hashtags">
+            <span *ngFor="let tag of result.hashtags">{{ tag }}</span>
+          </div>
+          <button
+            class="text-button"
+            (click)="copyText(result.hashtags.join(' '))"
+          >
+            Copy hashtags
+          </button>
+          <p class="content-note">
+            Review the text and confirm every offer or claim is accurate before
+            posting.
+          </p>
+        </article>
+
+        <article class="publish-panel">
+          <div>
+            <span class="eyebrow">FINAL STEP</span>
+            <h2>
+              {{
+                result.status === "active"
+                  ? "Demo publication recorded"
+                  : "Ready for your review?"
+              }}
+            </h2>
+            <p>
+              {{
+                result.status === "active"
+                  ? "The campaign status is now active in this demo."
+                  : "Save a simulated publication event to demonstrate the end-to-end workflow."
+              }}
+            </p>
+            <small>Demo mode only · No social platform API is called</small>
+          </div>
+          <button
+            class="primary-button publish-button"
+            *ngIf="result.status !== 'active'"
+            [disabled]="publishing"
+            (click)="publishDemo()"
+          >
+            {{ publishing ? "Saving demo status…" : "✓ Publish Demo" }}
+          </button>
+          <span class="published-check" *ngIf="result.status === 'active'"
+            >✓ Demo published</span
+          >
+        </article>
+        <p class="disclaimer">
+          AI-generated content is a draft. Check business details, brand assets,
+          rights, and claims before using it publicly.
+        </p>
+      </section>
+
+      <ng-template #emptyState>
+        <section class="empty-results">
+          <div class="empty-art"><span>✧</span><i>✳</i><b>♡</b></div>
+          <span class="eyebrow">YOUR CAMPAIGN WILL APPEAR HERE</span>
+          <h2>Good marketing starts with a clear idea.</h2>
+          <p>
+            Fill in the campaign brief and generate a strategy, social caption,
+            hashtags, and a matching poster concept.
+          </p>
+          <div class="empty-steps">
+            <span>01 <b>Strategy</b></span
+            ><span>02 <b>Creative</b></span
+            ><span>03 <b>Publish demo</b></span>
+          </div>
+        </section>
+      </ng-template>
+    </section>
+    <footer class="page-footer">
+      <span>✳ Crumbwise</span
+      ><span>Campaigns are saved as drafts before demo publishing.</span>
+    </footer>
+  </main>
+</div>

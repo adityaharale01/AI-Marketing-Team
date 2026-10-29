@@ -16,6 +16,44 @@ export interface ApiBusiness {
   gst_number?: string | null; business_registration_number?: string | null;
   owner_id: number; is_active: boolean; created_at: string; updated_at: string;
 }
+export interface MarketingCampaignRequest {
+  campaign_name: string;
+  goal: string;
+  platform: string;
+  target_audience?: string;
+  offer?: string;
+  budget?: number | null;
+  business_id?: number;
+}
+
+export interface MarketingCampaignResult {
+  campaign_id: number;
+  business: { id: number; name: string; type: string };
+  campaign_name: string;
+  objective: string;
+  platform: string;
+  target_audience: string;
+  strategy: string;
+  caption: string;
+  hashtags: string[];
+  poster: {
+    headline: string;
+    subtitle: string;
+    call_to_action: string;
+  };
+  content_notes: string;
+  status: string;
+  publish_mode: string;
+  message: string;
+}
+
+export interface MarketingPublishResult {
+  campaign_id: number;
+  status: string;
+  simulated: boolean;
+  platform: string;
+  message: string;
+}
 export interface BusinessCreateRequest {
   business_name: string; business_type: string; description?: string | null;
   email: string; phone: string; website?: string | null; address: string; city: string;
@@ -83,4 +121,30 @@ export class ApiService {
   searchKnowledge(query: string): Observable<unknown> { return this.http.post<unknown>(`${this.baseUrl}/ai/rag/search`, { query }); }
   addKnowledge(payload: Record<string, unknown>): Observable<unknown> { return this.http.post<unknown>(`${this.baseUrl}/ai/rag/add`, payload); }
   testAi(): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/ai/test`); }
+
+
+  generatePosterArtwork(prompt: string, steps = 4): Observable<{ image_data_url: string }> {
+    return this.http.post<{ image_data_url: string }>(
+      `${this.baseUrl}/marketing-agent/generate-poster`,
+      { prompt, steps }
+    );
+  }
+
+  generateMarketingCampaign(
+  payload: MarketingCampaignRequest
+): Observable<MarketingCampaignResult> {
+  return this.http.post<MarketingCampaignResult>(
+    `${this.baseUrl}/marketing-agent/generate`,
+    payload
+  );
+}
+
+publishCampaignDemo(
+  campaignId: number | string
+): Observable<MarketingPublishResult> {
+  return this.http.post<MarketingPublishResult>(
+    `${this.baseUrl}/marketing-agent/${campaignId}/publish-demo`,
+    {}
+  );
+}
 }

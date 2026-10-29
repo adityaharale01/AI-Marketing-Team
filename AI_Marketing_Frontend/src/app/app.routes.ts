@@ -6,6 +6,7 @@ import { BusinessSetupComponent } from './pages/business-setup/business-setup.co
 import { DashboardComponent } from './pages/dashboard/dashboard.component';
 import { WorkspaceComponent } from './pages/workspace/workspace.component';
 import { authGuard, onboardingGuard } from './core/guards/auth.guard';
+import { MarketingAgentComponent } from './pages/marketing-agent/marketing-agent.component';
 export const routes: Routes = [
  { path: '', component: LandingComponent },
  { path: 'register', component: RegisterComponent },
@@ -13,5 +14,10 @@ export const routes: Routes = [
  { path: 'business-setup', component: BusinessSetupComponent, canActivate: [authGuard] },
  { path: 'dashboard', component: DashboardComponent, canActivate: [onboardingGuard] },
  { path: 'workspace', component: WorkspaceComponent, canActivate: [onboardingGuard] },
+ {
+  path: 'marketing-agent',
+  component: MarketingAgentComponent,
+  canActivate: [onboardingGuard]
+},
  { path: '**', redirectTo: '' }
 ];

@@ -14,6 +14,7 @@ from app.routers import campaign_content
 from app.routers import ai_interaction
 from app.routers import ai_prediction
 from app.routers.ai_response import router as ai_router
+from app.routers.marketing_agent import router as marketing_agent_router
 from app.models import (
     User,
     Business,
@@ -38,6 +39,7 @@ app.include_router(campaign_content.router)
 app.include_router(ai_interaction.router)
 app.include_router(ai_prediction.router)
 app.include_router(ai_router)
+app.include_router(marketing_agent_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:4200"],
