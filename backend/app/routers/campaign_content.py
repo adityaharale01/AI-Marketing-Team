@@ -1,16 +1,14 @@
 from fastapi import (
     APIRouter,
     Depends,
-    HTTPException,
     status
 )
 
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.auth.oauth2 import get_current_user
-
-from app.models.user import User
+from app.dependencies import get_active_business
+from app.models.business import Business
 
 from app.schemas.campaign_content import (
     CampaignContentCreate,
@@ -29,19 +27,6 @@ router = APIRouter(
 )
 
 
-def get_user_business(
-    current_user: User
-):
-
-    if not current_user.businesses:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User does not have a business"
-        )
-
-    return current_user.businesses[0]
-
-
 @router.post(
     "/{campaign_id}/contents",
     response_model=CampaignContentResponse,
@@ -51,12 +36,8 @@ def create_content(
     campaign_id: int,
     content: CampaignContentCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(
-        current_user
-    )
 
     return CampaignContentService.create_content(
         db=db,
@@ -73,12 +54,8 @@ def create_content(
 def get_contents(
     campaign_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(
-        current_user
-    )
 
     return CampaignContentService.get_contents(
         db=db,
@@ -95,12 +72,8 @@ def get_content_by_type(
     campaign_id: int,
     content_type: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(
-        current_user
-    )
 
     return CampaignContentService.get_by_type(
         db=db,
@@ -118,12 +91,8 @@ def get_content(
     campaign_id: int,
     content_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(
-        current_user
-    )
 
     return CampaignContentService.get_content(
         db=db,
@@ -142,12 +111,8 @@ def update_content(
     content_id: int,
     content: CampaignContentUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(
-        current_user
-    )
 
     return CampaignContentService.update_content(
         db=db,
@@ -165,12 +130,8 @@ def delete_content(
     campaign_id: int,
     content_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(
-        current_user
-    )
 
     return CampaignContentService.delete_content(
         db=db,

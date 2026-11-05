@@ -1,16 +1,14 @@
 from fastapi import (
     APIRouter,
     Depends,
-    HTTPException,
     status
 )
 
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.auth.oauth2 import get_current_user
-
-from app.models.user import User
+from app.dependencies import get_active_business
+from app.models.business import Business
 
 from app.schemas.campaign import (
     CampaignCreate,
@@ -29,19 +27,6 @@ router = APIRouter(
 )
 
 
-def get_user_business(
-    current_user: User
-):
-
-    if not current_user.businesses:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User does not have a business"
-        )
-
-    return current_user.businesses[0]
-
-
 @router.post(
     "/",
     response_model=CampaignResponse,
@@ -50,12 +35,8 @@ def get_user_business(
 def create_campaign(
     campaign: CampaignCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(
-        current_user
-    )
 
     return CampaignService.create_campaign(
         db=db,
@@ -70,12 +51,8 @@ def create_campaign(
 )
 def get_campaigns(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(
-        current_user
-    )
 
     return CampaignService.get_campaigns(
         db=db,
@@ -90,12 +67,8 @@ def get_campaigns(
 def search_campaigns(
     name: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(
-        current_user
-    )
 
     return CampaignService.search_campaigns(
         db=db,
@@ -111,12 +84,8 @@ def search_campaigns(
 def get_campaigns_by_status(
     campaign_status: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(
-        current_user
-    )
 
     return CampaignService.get_campaigns_by_status(
         db=db,
@@ -132,12 +101,8 @@ def get_campaigns_by_status(
 def get_campaign(
     campaign_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(
-        current_user
-    )
 
     return CampaignService.get_campaign(
         db=db,
@@ -154,12 +119,8 @@ def update_campaign(
     campaign_id: int,
     campaign: CampaignUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(
-        current_user
-    )
 
     return CampaignService.update_campaign(
         db=db,
@@ -175,12 +136,8 @@ def update_campaign(
 def delete_campaign(
     campaign_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(
-        current_user
-    )
 
     return CampaignService.delete_campaign(
         db=db,

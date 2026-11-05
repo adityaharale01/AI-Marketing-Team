@@ -1,16 +1,14 @@
 from fastapi import (
     APIRouter,
     Depends,
-    HTTPException,
     status
 )
 
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.auth.oauth2 import get_current_user
-
-from app.models.user import User
+from app.dependencies import get_active_business
+from app.models.business import Business
 
 from app.schemas.product import (
     ProductCreate,
@@ -27,20 +25,6 @@ router = APIRouter(
 )
 
 
-def get_user_business(current_user: User):
-    """
-    Get the business belonging to the logged-in user.
-    """
-
-    if not current_user.businesses:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User does not have a business"
-        )
-
-    return current_user.businesses[0]
-
-
 @router.post(
     "/",
     response_model=ProductResponse,
@@ -49,10 +33,8 @@ def get_user_business(current_user: User):
 def create_product(
     product: ProductCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-    business = get_user_business(current_user)
-
     return ProductService.create_product(
         db=db,
         business_id=business.id,
@@ -66,10 +48,8 @@ def create_product(
 )
 def get_products(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-    business = get_user_business(current_user)
-
     return ProductService.get_products(
         db=db,
         business_id=business.id
@@ -83,10 +63,8 @@ def get_products(
 def search_products(
     name: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-    business = get_user_business(current_user)
-
     return ProductService.search_products(
         db=db,
         business_id=business.id,
@@ -101,10 +79,8 @@ def search_products(
 def get_products_by_category(
     category: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-    business = get_user_business(current_user)
-
     return ProductService.get_products_by_category(
         db=db,
         business_id=business.id,
@@ -119,10 +95,8 @@ def get_products_by_category(
 def get_product(
     product_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-    business = get_user_business(current_user)
-
     return ProductService.get_product(
         db=db,
         product_id=product_id,
@@ -138,10 +112,8 @@ def update_product(
     product_id: int,
     product: ProductUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-    business = get_user_business(current_user)
-
     return ProductService.update_product(
         db=db,
         product_id=product_id,
@@ -157,10 +129,8 @@ def update_product(
 def delete_product(
     product_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-    business = get_user_business(current_user)
-
     return ProductService.delete_product(
         db=db,
         product_id=product_id,

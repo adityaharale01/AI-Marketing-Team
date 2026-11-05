@@ -2,8 +2,9 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
-// Change this if FastAPI runs on a different host or port.
-export const API_BASE_URL = 'http://127.0.0.1:8000';
+import { environment } from '../../../environments/environment';
+
+export const API_BASE_URL = environment.apiBaseUrl;
 
 export interface RegisterRequest { full_name: string; email: string; password: string; }
 export interface LoginRequest { email: string; password: string; }
@@ -66,6 +67,18 @@ export class ApiService {
   private readonly baseUrl = API_BASE_URL;
   constructor(private http: HttpClient) {}
 
+  /**
+   * Every business-scoped request carries business_id so the backend resolves
+   * the currently selected business instead of defaulting to the first one.
+   */
+  private businessParams(businessId?: number | string, extra?: HttpParams): HttpParams {
+    let params = extra ?? new HttpParams();
+    if (businessId !== undefined && businessId !== null && `${businessId}` !== '') {
+      params = params.set('business_id', `${businessId}`);
+    }
+    return params;
+  }
+
   register(payload: RegisterRequest): Observable<ApiUser> {
     return this.http.post<ApiUser>(`${this.baseUrl}/auth/register`, payload);
   }
@@ -90,36 +103,36 @@ export class ApiService {
   }
 
   // Products
-  listProducts(): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/products/`); }
-  createProduct(payload: Record<string, unknown>): Observable<unknown> { return this.http.post<unknown>(`${this.baseUrl}/products/`, payload); }
-  searchProducts(query: string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/products/search`, { params: new HttpParams().set('name', query) }); }
-  getProduct(id: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/products/${id}`); }
-  updateProduct(id: number | string, payload: Record<string, unknown>): Observable<unknown> { return this.http.put<unknown>(`${this.baseUrl}/products/${id}`, payload); }
-  deleteProduct(id: number | string): Observable<unknown> { return this.http.delete<unknown>(`${this.baseUrl}/products/${id}`); }
+  listProducts(businessId?: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/products/`, { params: this.businessParams(businessId) }); }
+  createProduct(payload: Record<string, unknown>, businessId?: number | string): Observable<unknown> { return this.http.post<unknown>(`${this.baseUrl}/products/`, payload, { params: this.businessParams(businessId) }); }
+  searchProducts(query: string, businessId?: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/products/search`, { params: this.businessParams(businessId, new HttpParams().set('name', query)) }); }
+  getProduct(id: number | string, businessId?: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/products/${id}`, { params: this.businessParams(businessId) }); }
+  updateProduct(id: number | string, payload: Record<string, unknown>, businessId?: number | string): Observable<unknown> { return this.http.put<unknown>(`${this.baseUrl}/products/${id}`, payload, { params: this.businessParams(businessId) }); }
+  deleteProduct(id: number | string, businessId?: number | string): Observable<unknown> { return this.http.delete<unknown>(`${this.baseUrl}/products/${id}`, { params: this.businessParams(businessId) }); }
 
   // Sales
-  listSales(): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/sales/`); }
-  createSale(payload: Record<string, unknown>): Observable<unknown> { return this.http.post<unknown>(`${this.baseUrl}/sales/`, payload); }
-  getSalesForProduct(productId: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/sales/product/${productId}`); }
-  getSale(id: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/sales/${id}`); }
-  updateSale(id: number | string, payload: Record<string, unknown>): Observable<unknown> { return this.http.put<unknown>(`${this.baseUrl}/sales/${id}`, payload); }
-  deleteSale(id: number | string): Observable<unknown> { return this.http.delete<unknown>(`${this.baseUrl}/sales/${id}`); }
+  listSales(businessId?: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/sales/`, { params: this.businessParams(businessId) }); }
+  createSale(payload: Record<string, unknown>, businessId?: number | string): Observable<unknown> { return this.http.post<unknown>(`${this.baseUrl}/sales/`, payload, { params: this.businessParams(businessId) }); }
+  getSalesForProduct(productId: number | string, businessId?: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/sales/product/${productId}`, { params: this.businessParams(businessId) }); }
+  getSale(id: number | string, businessId?: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/sales/${id}`, { params: this.businessParams(businessId) }); }
+  updateSale(id: number | string, payload: Record<string, unknown>, businessId?: number | string): Observable<unknown> { return this.http.put<unknown>(`${this.baseUrl}/sales/${id}`, payload, { params: this.businessParams(businessId) }); }
+  deleteSale(id: number | string, businessId?: number | string): Observable<unknown> { return this.http.delete<unknown>(`${this.baseUrl}/sales/${id}`, { params: this.businessParams(businessId) }); }
 
   // Campaigns
-  listCampaigns(): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/campaigns/`); }
-  createCampaign(payload: Record<string, unknown>): Observable<unknown> { return this.http.post<unknown>(`${this.baseUrl}/campaigns/`, payload); }
-  searchCampaigns(name: string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/campaigns/search`, { params: new HttpParams().set('name', name) }); }
-  getCampaignsByStatus(status: string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/campaigns/status/${encodeURIComponent(status)}`); }
-  getCampaign(id: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/campaigns/${id}`); }
-  updateCampaign(id: number | string, payload: Record<string, unknown>): Observable<unknown> { return this.http.put<unknown>(`${this.baseUrl}/campaigns/${id}`, payload); }
-  deleteCampaign(id: number | string): Observable<unknown> { return this.http.delete<unknown>(`${this.baseUrl}/campaigns/${id}`); }
+  listCampaigns(businessId?: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/campaigns/`, { params: this.businessParams(businessId) }); }
+  createCampaign(payload: Record<string, unknown>, businessId?: number | string): Observable<unknown> { return this.http.post<unknown>(`${this.baseUrl}/campaigns/`, payload, { params: this.businessParams(businessId) }); }
+  searchCampaigns(name: string, businessId?: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/campaigns/search`, { params: this.businessParams(businessId, new HttpParams().set('name', name)) }); }
+  getCampaignsByStatus(status: string, businessId?: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/campaigns/status/${encodeURIComponent(status)}`, { params: this.businessParams(businessId) }); }
+  getCampaign(id: number | string, businessId?: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/campaigns/${id}`, { params: this.businessParams(businessId) }); }
+  updateCampaign(id: number | string, payload: Record<string, unknown>, businessId?: number | string): Observable<unknown> { return this.http.put<unknown>(`${this.baseUrl}/campaigns/${id}`, payload, { params: this.businessParams(businessId) }); }
+  deleteCampaign(id: number | string, businessId?: number | string): Observable<unknown> { return this.http.delete<unknown>(`${this.baseUrl}/campaigns/${id}`, { params: this.businessParams(businessId) }); }
 
   // AI / RAG
   getAiPerformance(businessId: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/ai/performance/${businessId}`); }
   indexBusinessKnowledge(businessId: number | string): Observable<unknown> { return this.http.post<unknown>(`${this.baseUrl}/ai/rag/index/${businessId}`, null); }
-  askKnowledge(query: string): Observable<unknown> { return this.http.post<unknown>(`${this.baseUrl}/ai/rag/ask`, null, { params: new HttpParams().set('query', query) }); }
-  searchKnowledge(query: string): Observable<unknown> { return this.http.post<unknown>(`${this.baseUrl}/ai/rag/search`, { query }); }
-  addKnowledge(payload: Record<string, unknown>): Observable<unknown> { return this.http.post<unknown>(`${this.baseUrl}/ai/rag/add`, payload); }
+  askKnowledge(query: string, businessId?: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/ai/rag/ask`, { params: this.businessParams(businessId, new HttpParams().set('query', query)) }); }
+  searchKnowledge(query: string, businessId?: number | string): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/ai/rag/search`, { params: this.businessParams(businessId, new HttpParams().set('query', query)) }); }
+  addKnowledge(payload: { content: string; title?: string }, businessId?: number | string): Observable<unknown> { return this.http.post<unknown>(`${this.baseUrl}/ai/rag/add`, payload, { params: this.businessParams(businessId) }); }
   testAi(): Observable<unknown> { return this.http.get<unknown>(`${this.baseUrl}/ai/test`); }
 
 

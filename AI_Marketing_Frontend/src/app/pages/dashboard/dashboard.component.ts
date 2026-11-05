@@ -24,6 +24,11 @@ export class DashboardComponent implements OnInit {
   assistantError = '';
   assistantLoading = false;
 
+  // Switching businesses quickly must not let an older response repaint the
+  // Overview with the previous business's numbers.
+  private lastAnalyticsRequestId = 0;
+  private lastAnswerRequestId = 0;
+
   constructor(
     public platform: PlatformService,
     private router: Router,
@@ -59,6 +64,9 @@ export class DashboardComponent implements OnInit {
     this.showBusinesses = false;
     this.analytics = null;
     this.answer = '';
+    // Retire any request still in flight for the previous business.
+    this.lastAnalyticsRequestId++;
+    this.lastAnswerRequestId++;
     this.closeMobileMenu();
     this.loadAnalytics();
   }
@@ -71,15 +79,18 @@ export class DashboardComponent implements OnInit {
   loadAnalytics(): void {
     const business = this.platform.activeBusiness;
     if (!business) return;
+    const requestId = ++this.lastAnalyticsRequestId;
     this.analyticsLoading = true;
     this.analyticsError = '';
     this.api.getBusinessAnalytics(business.id).subscribe({
       next: result => {
+        if (requestId !== this.lastAnalyticsRequestId) return;
         this.analytics = this.asObject(result);
         this.analyticsLoading = false;
         this.cdr.detectChanges();
       },
       error: (err: HttpErrorResponse) => {
+        if (requestId !== this.lastAnalyticsRequestId) return;
         this.analyticsLoading = false;
         this.analyticsError = this.errorText(err, 'Could not load analytics.');
         this.cdr.detectChanges();
@@ -91,16 +102,19 @@ export class DashboardComponent implements OnInit {
     const business = this.platform.activeBusiness;
     const query = this.question.trim();
     if (!business || !query || this.assistantLoading) return;
+    const requestId = ++this.lastAnswerRequestId;
     this.assistantLoading = true;
     this.assistantError = '';
     this.answer = '';
     this.api.askBusinessAgent(business.id, query).subscribe({
       next: result => {
+        if (requestId !== this.lastAnswerRequestId) return;
         this.answer = this.answerText(result);
         this.assistantLoading = false;
         this.cdr.detectChanges();
       },
       error: (err: HttpErrorResponse) => {
+        if (requestId !== this.lastAnswerRequestId) return;
         this.assistantError = this.errorText(err, 'The AI assistant could not answer right now.');
         this.assistantLoading = false;
         this.cdr.detectChanges();
@@ -208,7 +222,7 @@ export class DashboardComponent implements OnInit {
         .join(' ');
     }
     if (err.status === 0) {
-      return 'Cannot reach the backend. Confirm FastAPI is running at http://127.0.0.1:8000 and check CORS.';
+      return 'Cannot reach the backend service. Check your connection and try again.';
     }
     return fallback;
   }

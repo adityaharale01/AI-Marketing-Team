@@ -31,6 +31,6 @@ export class RegisterComponent {
     const detail = err.error?.detail;
     if (typeof detail === 'string') return detail;
     if (Array.isArray(detail)) return detail.map((item: { msg?: string }) => item.msg ?? '').filter(Boolean).join(' ');
-    return err.status === 0 ? 'Cannot reach the backend. Start FastAPI at http://127.0.0.1:8000 and check CORS.' : fallback;
+    return err.status === 0 ? 'Cannot reach the backend service. Check your connection and try again.' : fallback;
   }
 }

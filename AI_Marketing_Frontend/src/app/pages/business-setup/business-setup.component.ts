@@ -73,7 +73,7 @@ export class BusinessSetupComponent {
             : Array.isArray(detail)
             ? detail.map((x: { msg?: string }) => x.msg ?? '').join(' ')
             : err.status === 0
-            ? 'Cannot reach the backend. Start FastAPI at http://127.0.0.1:8000 and check CORS.'
+            ? 'Cannot reach the backend service. Check your connection and try again.'
             : 'Business creation failed. Check the details and try again.';
       }
     });

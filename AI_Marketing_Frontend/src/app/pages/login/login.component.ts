@@ -23,7 +23,7 @@ export class LoginComponent {
       error: (err: HttpErrorResponse) => {
         this.loading = false;
         const detail = err.error?.detail;
-        this.error = typeof detail === 'string' ? detail : (err.status === 0 ? 'Cannot reach the backend. Start FastAPI at http://127.0.0.1:8000 and check CORS.' : 'Login failed. Check your email and password.');
+        this.error = typeof detail === 'string' ? detail : (err.status === 0 ? 'Cannot reach the backend service. Check your connection and try again.' : 'Login failed. Check your email and password.');
       }
     });
   }

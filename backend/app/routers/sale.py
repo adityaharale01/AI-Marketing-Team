@@ -2,9 +2,8 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.auth.oauth2 import get_current_user
-
-from app.models.user import User
+from app.dependencies import get_active_business
+from app.models.business import Business
 
 from app.schemas.sale import (
     SaleCreate,
@@ -13,12 +12,6 @@ from app.schemas.sale import (
 )
 
 from app.services.sale_service import SaleService
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    status
-)
 
 router = APIRouter(
     prefix="/sales",
@@ -34,19 +27,11 @@ router = APIRouter(
 def create_sale(
     sale: SaleCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
     """
     Create a new sale for the current user's business.
     """
-
-    if not current_user.businesses:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User does not have a business"
-        )
-
-    business = current_user.businesses[0]
 
     return SaleService.create_sale(
         db=db,
@@ -61,19 +46,11 @@ def create_sale(
 )
 def get_sales(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
     """
     Get all sales belonging to the current user's business.
     """
-
-    if not current_user.businesses:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User does not have a business"
-        )
-
-    business = current_user.businesses[0]
 
     return SaleService.get_sales(
         db=db,
@@ -88,19 +65,11 @@ def get_sales(
 def get_product_sales(
     product_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
     """
     Get sales for a specific product.
     """
-
-    if not current_user.businesses:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User does not have a business"
-        )
-
-    business = current_user.businesses[0]
 
     return SaleService.get_product_sales(
         db=db,
@@ -116,19 +85,11 @@ def get_product_sales(
 def get_sale(
     sale_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
     """
     Get a specific sale.
     """
-
-    if not current_user.businesses:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User does not have a business"
-        )
-
-    business = current_user.businesses[0]
 
     return SaleService.get_sale(
         db=db,
@@ -145,19 +106,11 @@ def update_sale(
     sale_id: int,
     sale: SaleUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
     """
     Update a sale.
     """
-
-    if not current_user.businesses:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User does not have a business"
-        )
-
-    business = current_user.businesses[0]
 
     return SaleService.update_sale(
         db=db,
@@ -174,19 +127,11 @@ def update_sale(
 def delete_sale(
     sale_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
     """
     Delete a sale.
     """
-
-    if not current_user.businesses:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User does not have a business"
-        )
-
-    business = current_user.businesses[0]
 
     return SaleService.delete_sale(
         db=db,

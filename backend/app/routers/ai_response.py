@@ -1,35 +1,45 @@
-from fastapi import APIRouter
-from app.services.ollama_service import generate_response
-from app.services.rag_service import add_context, search_context
-from fastapi import Depends
-from sqlalchemy.orm import Session
-from app.services.rag_service import search_context, build_context
-from app.services.ollama_service import generate_response
-from app.database import get_db
-from app.services.rag_service import index_business_data
-from app.services.business_agent import (
-    ask_business_agent
-)
-router = APIRouter(
-    prefix="/ai",
-    tags=["AI"]
-)
-from app.services.performance_service import (
-    get_product_performance
-)
-
-from app.services.rag_service import (
-    index_product_performance
-)
-from app.services.rag_service import search_business_context, build_context
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException
 )
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from app.auth.oauth2 import get_current_user
+from app.database import get_db
+from app.dependencies import get_owned_business
+from app.models.business import Business
+from app.models.user import User
+from app.services.business_agent import ask_business_agent
+from app.services.business_analytics_service import get_business_analytics
+from app.services.ollama_service import generate_response
+from app.services.performance_service import get_product_performance
+from app.services.rag_service import (
+    add_context,
+    build_context,
+    index_business_data,
+    index_product_performance,
+    search_business_context
+)
+
+router = APIRouter(
+    prefix="/ai",
+    tags=["AI"]
+)
+
+
+class RagAddRequest(BaseModel):
+
+    content: str = Field(..., min_length=1, max_length=5000)
+
+    title: str | None = Field(default=None, max_length=200)
+
 
 @router.get("/test")
-async def test_ai():
+async def test_ai(
+    current_user: User = Depends(get_current_user)
+):
 
     response = await generate_response(
         "Explain marketing in one simple sentence."
@@ -40,49 +50,80 @@ async def test_ai():
     }
 
 @router.post("/rag/add")
-async def add_rag_data():
+async def add_rag_data(
+    payload: RagAddRequest,
+    business: Business = Depends(get_owned_business)
+):
+
+    context = payload.content.strip()
+
+    if payload.title:
+        context = f"{payload.title}\n\n{context}"
 
     add_context(
-        """
-        Chocolate Cake is one of the best-selling products
-        of ABC Bakery. Sales have increased recently.
-        The bakery is planning a weekend promotion.
-        """,
-        "business_1_product_101"
+        context=context,
+        context_id=f"business_{business.id}_note_{hash(context) & 0xFFFFFFFF}",
+        business_id=business.id,
+        context_type="note"
     )
 
     return {
+        "business_id": business.id,
         "message": "Context added successfully"
     }
 
-@router.get("/rag/search")
-async def search_rag():
 
-    result = search_context(
-        "Which bakery product is performing well?"
+@router.get("/rag/search")
+async def search_rag(
+    query: str,
+    business: Business = Depends(get_owned_business)
+):
+
+    results = search_business_context(
+        query=query,
+        business_id=business.id,
+        n_results=3
     )
 
-    return result
+    return {
+        "business_id": business.id,
+        "query": query,
+        "context": build_context(results),
+        "results": results
+    }
+
 
 @router.post("/rag/index/{business_id}")
 async def index_business(
-    business_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    business: Business = Depends(get_owned_business)
 ):
 
     return index_business_data(
         db,
-        business_id
+        business.id
     )
-@router.get("/rag/ask")
-async def rag_ask(query: str):
 
-    results = search_context(
-        query,
+
+@router.get("/rag/ask")
+async def rag_ask(
+    query: str,
+    db: Session = Depends(get_db),
+    business: Business = Depends(get_owned_business)
+):
+
+    results = search_business_context(
+        query=query,
+        business_id=business.id,
         n_results=3
     )
 
     context = build_context(results)
+
+    analytics = get_business_analytics(
+        db=db,
+        business_id=business.id
+    )
 
     prompt = f"""
 You are the Business Agent of an AI Marketing Team.
@@ -111,6 +152,9 @@ STRICT DATA-GROUNDING RULES:
 11. Do not add assumptions, explanations, or causes that are not
     present in the data.
 
+RETRIEVED BUSINESS KNOWLEDGE:
+{context}
+
 VERIFIED BUSINESS ANALYTICS:
 {analytics}
 
@@ -123,6 +167,7 @@ Give a concise, factual business answer.
     response = await generate_response(prompt)
 
     return {
+        "business_id": business.id,
         "query": query,
         "context": context,
         "response": response
@@ -130,37 +175,33 @@ Give a concise, factual business answer.
 
 @router.get("/performance/{business_id}")
 async def product_performance(
-    business_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    business: Business = Depends(get_owned_business)
 ):
     return get_product_performance(
         db,
-        business_id
+        business.id
     )
 
 @router.post("/rag/index-performance/{business_id}")
 async def index_performance(
-    business_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    business: Business = Depends(get_owned_business)
 ):
     return index_product_performance(
         db,
-        business_id
+        business.id
     )
-
-from app.services.business_analytics_service import (
-    get_business_analytics
-)
 
 @router.get("/business-analytics/{business_id}")
 async def business_analytics(
-    business_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    business: Business = Depends(get_owned_business)
 ):
     try:
         return get_business_analytics(
             db,
-            business_id
+            business.id
         )
 
     except ValueError as e:
@@ -171,14 +212,14 @@ async def business_analytics(
 
 @router.post("/business-agent")
 async def business_agent(
-    business_id: int,
     query: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    business: Business = Depends(get_owned_business)
 ):
     try:
         result = await ask_business_agent(
             db=db,
-            business_id=business_id,
+            business_id=business.id,
             query=query
         )
 
@@ -192,19 +233,19 @@ async def business_agent(
 
 @router.get("/rag/search/{business_id}")
 async def search_business_rag(
-    business_id: int,
-    query: str
+    query: str,
+    business: Business = Depends(get_owned_business)
 ):
     results = search_business_context(
         query=query,
-        business_id=business_id,
+        business_id=business.id,
         n_results=3
     )
 
     context = build_context(results)
 
     return {
-        "business_id": business_id,
+        "business_id": business.id,
         "query": query,
         "context": context,
         "results": results

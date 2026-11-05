@@ -1,7 +1,6 @@
 from fastapi import (
     APIRouter,
     Depends,
-    HTTPException,
     status
 )
 
@@ -9,6 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth.oauth2 import get_current_user
+from app.dependencies import get_active_business
+from app.models.business import Business
 
 from app.models.user import User
 
@@ -28,19 +29,6 @@ router = APIRouter(
 )
 
 
-def get_user_business(
-    current_user: User
-):
-
-    if not current_user.businesses:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User does not have a business"
-        )
-
-    return current_user.businesses[0]
-
-
 @router.post(
     "/",
     response_model=AIInteractionResponse,
@@ -49,10 +37,9 @@ def get_user_business(
 def create_interaction(
     interaction: AIInteractionCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(current_user)
 
     return AIInteractionService.create_interaction(
         db=db,
@@ -68,10 +55,8 @@ def create_interaction(
 )
 def get_interactions(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(current_user)
 
     return AIInteractionService.get_interactions(
         db=db,
@@ -86,10 +71,8 @@ def get_interactions(
 def get_agent_interactions(
     agent_type: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(current_user)
 
     return AIInteractionService.get_agent_interactions(
         db=db,
@@ -105,10 +88,8 @@ def get_agent_interactions(
 def get_interaction(
     interaction_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(current_user)
 
     return AIInteractionService.get_interaction(
         db=db,
@@ -123,10 +104,8 @@ def get_interaction(
 def delete_interaction(
     interaction_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    business: Business = Depends(get_active_business)
 ):
-
-    business = get_user_business(current_user)
 
     return AIInteractionService.delete_interaction(
         db=db,

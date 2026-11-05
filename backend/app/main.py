@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from app.routers import business
 from app.database import engine, Base
+from app.config import settings
 from app.routers.auth import router as auth_router
 # Import all models
 from app.models import User, Business, Product
@@ -42,7 +43,11 @@ app.include_router(ai_router)
 app.include_router(marketing_agent_router)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200"],
+    allow_origins=[
+        origin.strip()
+        for origin in settings.FRONTEND_ORIGINS.split(",")
+        if origin.strip()
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -51,6 +56,15 @@ app.add_middleware(
 def home():
     return {
         "message": "AI Marketing Team Backend Running Successfully"
+    }
+
+
+@app.get("/health")
+def health():
+    return {
+        "status": "healthy",
+        "environment": settings.ENVIRONMENT,
+        "model": settings.OLLAMA_MODEL
     }
 
 

@@ -4,6 +4,8 @@ from sentence_transformers import SentenceTransformer
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
+
 from app.models.business import Business
 from app.models.product import Product
 from app.models.sale import Sale
@@ -30,7 +32,7 @@ embedding_model = SentenceTransformer(
 # =========================================================
 
 chroma_client = chromadb.PersistentClient(
-    path="./chroma_db"
+    path=settings.CHROMA_DB_PATH
 )
 
 

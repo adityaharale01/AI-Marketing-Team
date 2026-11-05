@@ -53,6 +53,10 @@ export class WorkspaceComponent implements OnInit {
   searchText = '';
   statusText = 'active';
 
+  // Responses from an earlier request must not overwrite the current
+  // business's rows when the user switches quickly or searches again.
+  private lastRequestId = 0;
+
   showEditor = false;
   editing = false;
   recordId = '';
@@ -288,18 +292,24 @@ export class WorkspaceComponent implements OnInit {
       return;
     }
 
+    const businessId = this.platform.activeBusiness?.id;
+    const requestId = ++this.lastRequestId;
     this.loading = true;
     this.error = '';
 
     const request =
       this.active === 'products'
-        ? this.api.listProducts()
+        ? this.api.listProducts(businessId)
         : this.active === 'sales'
-          ? this.api.listSales()
-          : this.api.listCampaigns();
+          ? this.api.listSales(businessId)
+          : this.api.listCampaigns(businessId);
 
     request.subscribe({
       next: response => {
+        if (requestId !== this.lastRequestId) {
+          return;
+        }
+
         this.rows = this.asRows(response);
         this.currentPage = 1;
         this.visibleLimit = this.pageSize;
@@ -308,6 +318,10 @@ export class WorkspaceComponent implements OnInit {
         this.cdr.detectChanges();
       },
       error: err => {
+        if (requestId !== this.lastRequestId) {
+          return;
+        }
+
         this.error = this.errorText(err);
         this.loading = false;
         this.rows = [];
@@ -319,24 +333,30 @@ export class WorkspaceComponent implements OnInit {
 
   searchRecords(): void {
     const term = this.searchText.trim();
+    const businessId = this.platform.activeBusiness?.id;
 
     if (!term) {
       this.loadRows();
       return;
     }
 
+    const requestId = ++this.lastRequestId;
     this.loading = true;
     this.error = '';
 
     const request =
       this.active === 'products'
-        ? this.api.searchProducts(term)
+        ? this.api.searchProducts(term, businessId)
         : this.active === 'campaigns'
-          ? this.api.searchCampaigns(term)
-          : this.api.getSalesForProduct(term);
+          ? this.api.searchCampaigns(term, businessId)
+          : this.api.getSalesForProduct(term, businessId);
 
     request.subscribe({
       next: response => {
+        if (requestId !== this.lastRequestId) {
+          return;
+        }
+
         this.rows = this.asRows(response);
         this.currentPage = 1;
         this.visibleLimit = this.pageSize;
@@ -345,6 +365,10 @@ export class WorkspaceComponent implements OnInit {
         this.cdr.detectChanges();
       },
       error: err => {
+        if (requestId !== this.lastRequestId) {
+          return;
+        }
+
         this.error = this.errorText(err);
         this.loading = false;
         this.cdr.detectChanges();
@@ -353,11 +377,17 @@ export class WorkspaceComponent implements OnInit {
   }
 
   filterCampaignStatus(): void {
+    const businessId = this.platform.activeBusiness?.id;
+    const requestId = ++this.lastRequestId;
     this.loading = true;
     this.error = '';
 
-    this.api.getCampaignsByStatus(this.statusText).subscribe({
+    this.api.getCampaignsByStatus(this.statusText, businessId).subscribe({
       next: response => {
+        if (requestId !== this.lastRequestId) {
+          return;
+        }
+
         this.rows = this.asRows(response);
         this.currentPage = 1;
         this.visibleLimit = this.pageSize;
@@ -366,6 +396,10 @@ export class WorkspaceComponent implements OnInit {
         this.cdr.detectChanges();
       },
       error: err => {
+        if (requestId !== this.lastRequestId) {
+          return;
+        }
+
         this.error = this.errorText(err);
         this.loading = false;
         this.cdr.detectChanges();
@@ -428,15 +462,9 @@ export class WorkspaceComponent implements OnInit {
       }
     }
 
-    // Attach the selected business to the record.
-    if (
-      (this.active === 'products' ||
-        this.active === 'campaigns') &&
-      this.platform.activeBusiness?.id
-    ) {
-      payload['business_id'] =
-        this.platform.activeBusiness.id;
-    }
+    // The selected business is sent as business_id so the backend writes the
+    // record into that business instead of the account's first one.
+    const businessId = this.platform.activeBusiness?.id;
 
     // Calculate sale amount when it is not supplied.
     if (
@@ -466,15 +494,15 @@ export class WorkspaceComponent implements OnInit {
     const request =
       this.active === 'products'
         ? this.editing
-          ? this.api.updateProduct(this.recordId, payload)
-          : this.api.createProduct(payload)
+          ? this.api.updateProduct(this.recordId, payload, businessId)
+          : this.api.createProduct(payload, businessId)
         : this.active === 'sales'
           ? this.editing
-            ? this.api.updateSale(this.recordId, payload)
-            : this.api.createSale(payload)
+            ? this.api.updateSale(this.recordId, payload, businessId)
+            : this.api.createSale(payload, businessId)
           : this.editing
-            ? this.api.updateCampaign(this.recordId, payload)
-            : this.api.createCampaign(payload);
+            ? this.api.updateCampaign(this.recordId, payload, businessId)
+            : this.api.createCampaign(payload, businessId);
 
     request.subscribe({
       next: () => {
@@ -522,10 +550,10 @@ export class WorkspaceComponent implements OnInit {
 
     const request =
       this.active === 'products'
-        ? this.api.deleteProduct(id)
+        ? this.api.deleteProduct(id, this.platform.activeBusiness?.id)
         : this.active === 'sales'
-          ? this.api.deleteSale(id)
-          : this.api.deleteCampaign(id);
+          ? this.api.deleteSale(id, this.platform.activeBusiness?.id)
+          : this.api.deleteCampaign(id, this.platform.activeBusiness?.id);
 
     request.subscribe({
       next: () => {
@@ -553,10 +581,7 @@ export class WorkspaceComponent implements OnInit {
   ): void {
     const businessId = this.platform.activeBusiness?.id;
 
-    if (
-      (action === 'performance' || action === 'index') &&
-      !businessId
-    ) {
+    if (action !== 'test' && !businessId) {
       this.aiError = 'Choose a business before running this action.';
       return;
     }
@@ -584,20 +609,19 @@ export class WorkspaceComponent implements OnInit {
     } else if (action === 'index') {
       request = this.api.indexBusinessKnowledge(businessId!);
     } else if (action === 'ask') {
-      request = this.api.askKnowledge(this.query.trim());
+      request = this.api.askKnowledge(this.query.trim(), businessId);
     } else if (action === 'search') {
-      request = this.api.searchKnowledge(this.query.trim());
+      request = this.api.searchKnowledge(this.query.trim(), businessId);
     } else if (action === 'test') {
       request = this.api.testAi();
     } else {
-      request = this.api.addKnowledge({
-        content: this.knowledgeText.trim(),
-        title: this.knowledgeTitle.trim() || undefined,
-        metadata: {
-          business_id: businessId,
-          business_name: this.platform.activeBusiness?.name
-        }
-      });
+      request = this.api.addKnowledge(
+        {
+          content: this.knowledgeText.trim(),
+          title: this.knowledgeTitle.trim() || undefined
+        },
+        businessId
+      );
     }
 
     request.subscribe({

@@ -1,11 +1,13 @@
 import httpx
 
+from app.config import settings
 
-OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
-OLLAMA_MODEL = "llama3.2:3b"
 
-# Reuse the connection pool between intent and answer generation.
-_client = httpx.AsyncClient(timeout=httpx.Timeout(90.0, connect=5.0))
+OLLAMA_URL = f"{settings.OLLAMA_BASE_URL.rstrip('/')}/api/generate"
+OLLAMA_MODEL = settings.OLLAMA_MODEL
+
+# CPU inference on a small Azure VM can take several minutes for long prompts.
+_client = httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0))
 
 
 async def generate_response(prompt: str) -> str:

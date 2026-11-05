@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth.oauth2 import get_current_user
+from app.dependencies import get_owned_business
+from app.models.business import Business
 from app.models.user import User
 from app.schemas.business import (
     BusinessCreate,
@@ -53,14 +55,10 @@ def get_my_businesses(
     response_model=BusinessResponse
 )
 def get_business(
-    business_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    owned_business: Business = Depends(get_owned_business)
 ):
-    return BusinessService.get_business_by_id(
-        db=db,
-        business_id=business_id
-    )
+    return owned_business
 
 
 @router.put(
@@ -68,14 +66,13 @@ def get_business(
     response_model=BusinessResponse
 )
 def update_business(
-    business_id: int,
     business: BusinessUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    owned_business: Business = Depends(get_owned_business)
 ):
     return BusinessService.update_business(
         db=db,
-        business_id=business_id,
+        business_id=owned_business.id,
         business=business
     )
 
@@ -85,11 +82,10 @@ def update_business(
     status_code=status.HTTP_200_OK
 )
 def delete_business(
-    business_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    owned_business: Business = Depends(get_owned_business)
 ):
     return BusinessService.delete_business(
         db=db,
-        business_id=business_id
+        business_id=owned_business.id
     )
