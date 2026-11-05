@@ -8,7 +8,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { ApiService } from '../../core/services/api.service';
 import { PlatformService } from '../../core/services/platform.service';
@@ -40,8 +40,11 @@ export class WorkspaceComponent implements OnInit {
   error = '';
   notice = '';
 
-  readonly pageSize = 50;
-  visibleLimit = 50;
+  readonly pageSize = 10;
+  visibleLimit = 10;
+  currentPage = 1;
+  viewingRow: Record<string, any> | null = null;
+  mobileMenuOpen = false;
   columns: string[] = [];
 
   private fieldsCacheKey: ModuleKey | null = null;
@@ -67,10 +70,31 @@ export class WorkspaceComponent implements OnInit {
   constructor(
     public platform: PlatformService,
     private api: ApiService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
+    this.route.queryParamMap.subscribe(params => {
+      const requestedModule = params.get('module');
+      if (
+        requestedModule === 'products' ||
+        requestedModule === 'sales' ||
+        requestedModule === 'campaigns'
+      ) {
+        if (this.active !== requestedModule) {
+          this.active = requestedModule;
+          this.currentPage = 1;
+          this.loadRows();
+          return;
+        }
+      }
+    });
+
+    const requestedModule = this.route.snapshot.queryParamMap.get('module');
+    if (requestedModule === 'products' || requestedModule === 'sales' || requestedModule === 'campaigns') {
+      this.active = requestedModule;
+    }
     this.loadRows();
   }
 
@@ -246,11 +270,13 @@ export class WorkspaceComponent implements OnInit {
 
   switchModule(module: ModuleKey): void {
     this.active = module;
-
+    this.currentPage = 1;
     this.error = '';
     this.notice = '';
     this.searchText = '';
     this.showEditor = false;
+    this.closeView();
+    this.closeMobileMenu();
 
     if (module !== 'ai') {
       this.loadRows();
@@ -275,6 +301,7 @@ export class WorkspaceComponent implements OnInit {
     request.subscribe({
       next: response => {
         this.rows = this.asRows(response);
+        this.currentPage = 1;
         this.visibleLimit = this.pageSize;
         this.columns = this.buildTableColumns();
         this.loading = false;
@@ -311,6 +338,7 @@ export class WorkspaceComponent implements OnInit {
     request.subscribe({
       next: response => {
         this.rows = this.asRows(response);
+        this.currentPage = 1;
         this.visibleLimit = this.pageSize;
         this.columns = this.buildTableColumns();
         this.loading = false;
@@ -331,6 +359,7 @@ export class WorkspaceComponent implements OnInit {
     this.api.getCampaignsByStatus(this.statusText).subscribe({
       next: response => {
         this.rows = this.asRows(response);
+        this.currentPage = 1;
         this.visibleLimit = this.pageSize;
         this.columns = this.buildTableColumns();
         this.loading = false;
@@ -688,19 +717,71 @@ export class WorkspaceComponent implements OnInit {
       .slice(0, 5);
   }
 
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.rows.length / this.pageSize));
+  }
+
+  get startIndex(): number {
+    if (!this.rows.length) return 0;
+    return (this.currentPage - 1) * this.pageSize + 1;
+  }
+
+  get endIndex(): number {
+    return Math.min(this.currentPage * this.pageSize, this.rows.length);
+  }
+
+  get pagedRows(): Record<string, any>[] {
+    const start = (this.currentPage - 1) * this.pageSize;
+    return this.rows.slice(start, start + this.pageSize);
+  }
+
   get visibleRows(): Record<string, any>[] {
-    return this.rows.slice(0, this.visibleLimit);
+    return this.pagedRows;
   }
 
   get hasMoreRows(): boolean {
-    return this.visibleLimit < this.rows.length;
+    return this.currentPage < this.totalPages;
+  }
+
+  prevPage(): void {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.cdr.detectChanges();
+    }
+  }
+
+  nextPage(): void {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+      this.cdr.detectChanges();
+    }
+  }
+
+  goToPage(page: number): void {
+    if (page >= 1 && page <= this.totalPages) {
+      this.currentPage = page;
+      this.cdr.detectChanges();
+    }
   }
 
   showMoreRows(): void {
-    this.visibleLimit = Math.min(
-      this.visibleLimit + this.pageSize,
-      this.rows.length
-    );
+    this.nextPage();
+  }
+
+  openView(row: Record<string, any>): void {
+    this.viewingRow = row;
+  }
+
+  closeView(): void {
+    this.viewingRow = null;
+  }
+
+  toggleMobileMenu(): void {
+    this.mobileMenuOpen = !this.mobileMenuOpen;
+  }
+
+  closeMobileMenu(): void {
+    this.mobileMenuOpen = false;
   }
 
   private asRows(

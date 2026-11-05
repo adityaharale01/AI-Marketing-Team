@@ -1,17 +1,38 @@
 <div class="workspace-shell">
-  <aside class="app-sidebar">
-    <a class="brand" routerLink="/dashboard"
+  <!-- Mobile Navigation Header (Visible only on mobile/tablet screens) -->
+  <header class="mobile-topbar">
+    <button type="button" class="btn-hamburger" (click)="toggleMobileMenu()" aria-label="Toggle navigation menu">
+      <span class="hamburger-line"></span>
+      <span class="hamburger-line"></span>
+      <span class="hamburger-line"></span>
+    </button>
+    <a class="mobile-brand" routerLink="/dashboard" (click)="closeMobileMenu()">
+      <span class="brand-symbol">✳</span>
+      <span>crumbwise<small class="brand-dot">.</small></span>
+    </a>
+    <div class="mobile-biz-chip" *ngIf="platform.activeBusiness">
+      <span class="chip-avatar">✿</span>
+      <span class="chip-name">{{ platform.activeBusiness.name }}</span>
+    </div>
+  </header>
+
+  <!-- Mobile Drawer Overlay Backdrop -->
+  <div class="mobile-drawer-overlay" *ngIf="mobileMenuOpen" (click)="closeMobileMenu()" aria-hidden="true"></div>
+
+  <aside class="app-sidebar" [class.drawer-open]="mobileMenuOpen">
+    <div class="mobile-sidebar-head">
+      <span class="drawer-heading">NAVIGATION</span>
+      <button type="button" class="btn-close-drawer" (click)="closeMobileMenu()" aria-label="Close menu">✕</button>
+    </div>
+    <a class="brand" routerLink="/dashboard" (click)="closeMobileMenu()"
       ><span class="brand-symbol">✳</span
       ><span
         >crumbwise<span class="brand-dot">.</span
         ><small>AI MARKETING TEAM</small></span
       ></a
     >
-    <div class="sidebar-label">WORKSPACE</div>
-    <a class="side-link" routerLink="/dashboard"><span>⌂</span> Overview</a>
-    <a class="side-link" routerLink="/dashboard" fragment="assistant"
-      ><span>✳</span> Business AI Agent</a
-    >
+    <div class="sidebar-label">OVERVIEW</div>
+    <a class="side-link" routerLink="/dashboard" (click)="closeMobileMenu()"><span>⌂</span> Dashboard</a>
     <div class="sidebar-label">MANAGE BUSINESS</div>
     <button
       class="side-link"
@@ -34,23 +55,19 @@
     >
       <span>♡</span> Campaigns
     </button>
-    <div class="sidebar-label">AI CAPABILITIES</div>
-    <a class="side-link" routerLink="/marketing-agent">
+    <div class="sidebar-label">AI TEAM</div>
+    <a class="side-link" routerLink="/dashboard" fragment="assistant" (click)="closeMobileMenu()">
+      <span>✳</span> Business AI Agent
+    </a>
+    <a class="side-link" routerLink="/marketing-agent" (click)="closeMobileMenu()">
       <span>✧</span> Marketing Agent
     </a>
-    <button
-      class="side-link"
-      [class.active]="active === 'ai'"
-      (click)="switchModule('ai')"
-    >
-      <span>✧</span> Knowledge & insights
-    </button>
     <div class="sidebar-business">
       <small>WORKING ON</small
       ><strong>{{
         platform.activeBusiness?.name || "Choose a business"
       }}</strong
-      ><a routerLink="/dashboard">Switch business ↗</a>
+      ><a routerLink="/dashboard" (click)="closeMobileMenu()">Switch business ↗</a>
     </div>
     <div class="sidebar-bottom">
       <span class="avatar">✿</span>
@@ -211,8 +228,10 @@
                 >
               </td>
               <td class="row-actions">
-                <button (click)="openEdit(row)" title="Edit record">Edit</button
-                ><button
+                <button type="button" class="view-action" (click)="openView(row)" title="View record details">View</button>
+                <button type="button" class="edit-action" (click)="openEdit(row)" title="Edit record">Edit</button>
+                <button
+                  type="button"
                   class="delete-action"
                   (click)="deleteRow(row)"
                   title="Delete record"
@@ -224,12 +243,34 @@
           </tbody>
         </table>
       </div>
-      <div class="load-more-row" *ngIf="!loading && hasMoreRows">
-        <span
-          >Showing {{ visibleRows.length }} of {{ rows.length }} records</span
-        ><button class="btn btn-outline" (click)="showMoreRows()">
-          Load 50 more
-        </button>
+      <div class="pagination-bar" *ngIf="!loading && rows.length > 0">
+        <div class="pagination-info">
+          Showing <strong>{{ startIndex }}</strong> – <strong>{{ endIndex }}</strong> of <strong>{{ rows.length }}</strong>
+          {{ active === 'products' ? 'products' : active === 'sales' ? 'sales records' : 'campaigns' }}
+        </div>
+        <div class="pagination-controls">
+          <button
+            type="button"
+            class="pagination-btn"
+            (click)="prevPage()"
+            [disabled]="currentPage <= 1"
+            aria-label="Previous page"
+          >
+            ← Previous
+          </button>
+          <span class="pagination-page-indicator">
+            Page <strong>{{ currentPage }}</strong> of <strong>{{ totalPages }}</strong>
+          </span>
+          <button
+            type="button"
+            class="pagination-btn"
+            (click)="nextPage()"
+            [disabled]="currentPage >= totalPages"
+            aria-label="Next page"
+          >
+            Next →
+          </button>
+        </div>
       </div>
       <div class="empty-state" *ngIf="!loading && !rows.length">
         <div class="empty-icon">
@@ -490,5 +531,38 @@
         </div>
       </form>
     </section>
+
+    <!-- View Details Modal -->
+    <div class="modal-backdrop" *ngIf="viewingRow" (click)="closeView()">
+      <div class="editor-modal view-details-modal" (click)="$event.stopPropagation()">
+        <header class="modal-head">
+          <div>
+            <span class="modal-kicker">{{ active.toUpperCase() }} DETAILS</span>
+            <h2>{{ rowTitle(viewingRow) }}</h2>
+          </div>
+          <button type="button" class="close-button" (click)="closeView()" aria-label="Close view">×</button>
+        </header>
+
+        <div class="view-grid">
+          <div class="view-field" *ngFor="let col of columns">
+            <span class="view-label">{{ col.replace('_', ' ') }}</span>
+            <span class="view-value" [class.status-pill]="col === 'status'">
+              {{ displayValue(viewingRow, col) }}
+            </span>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" (click)="closeView()">Close</button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            (click)="openEdit(viewingRow); closeView()"
+          >
+            Edit this {{ active === 'products' ? 'product' : active === 'sales' ? 'sale' : 'campaign' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>

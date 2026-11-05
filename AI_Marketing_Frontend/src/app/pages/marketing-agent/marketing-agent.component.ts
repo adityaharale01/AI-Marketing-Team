@@ -29,6 +29,15 @@ export class MarketingAgentComponent {
   notice = '';
   posterImageDataUrl: string | null = null;
   posterGenerating = false;
+  mobileMenuOpen = false;
+
+  toggleMobileMenu(): void {
+    this.mobileMenuOpen = !this.mobileMenuOpen;
+  }
+
+  closeMobileMenu(): void {
+    this.mobileMenuOpen = false;
+  }
 
   constructor(
     public platform: PlatformService,

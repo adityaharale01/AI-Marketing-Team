@@ -1,1 +1,313 @@
-<div class="auth-page"><a class="auth-brand" routerLink="/"><span>✳</span> crumbwise<span class="brand-dot">.</span></a><div class="auth-layout"><section class="auth-story"><span class="section-kicker">YOUR BUSINESS</span><h1>Every great<br>story starts<br><em>somewhere.</em></h1><p>Tell us about your business so your workspace can focus on the things that matter to you.</p><div class="story-note">✦ &nbsp; You can add more businesses later.</div></section><section class="auth-card"><span class="section-kicker">BUSINESS SETUP</span><h2>Meet your business.</h2><p class="auth-subtitle">These details are saved to your account in the backend.</p><form [formGroup]="form" (ngSubmit)="submit()"><label>Business name<input formControlName="name" placeholder="e.g. Fresh Bake House"></label><label>Business category<select formControlName="category"><option value="Bakery">Bakery</option><option value="Restaurant">Restaurant</option><option value="Retail">Retail / Shop</option><option value="Other">Other</option></select></label><label>Business email<input formControlName="email" type="email" placeholder="business@example.com"></label><label>Contact phone<input formControlName="phone" type="tel" placeholder="+91…"></label><label>Street address<input formControlName="address" placeholder="Street / area"></label><label>City<input formControlName="city" placeholder="e.g. Kolhapur"></label><label>State<input formControlName="state" placeholder="e.g. Maharashtra"></label><label>Country<input formControlName="country" placeholder="India"></label><label>PIN code<input formControlName="pincode" placeholder="416001"></label><label>Website <span class="optional">(optional)</span><input formControlName="website" type="url" placeholder="https://example.com"></label><label>Description <span class="optional">(optional)</span><input formControlName="description" placeholder="What does your business do?"></label><p class="form-error" *ngIf="error">{{error}}</p><button class="auth-submit" type="submit" [disabled]="loading">{{loading ? 'Creating workspace…' : 'Create business workspace'}} <span>↗</span></button></form></section></div></div>
+<div class="business-setup-page">
+  <header class="setup-topbar">
+    <a class="setup-brand" routerLink="/">
+      <span class="brand-badge">✳</span>
+      <span class="brand-text">crumbwise<span class="brand-dot">.</span></span>
+      <span class="brand-tag">AI MARKETING TEAM</span>
+    </a>
+    <div class="setup-top-action" *ngIf="platform.isLoggedIn">
+      <span class="user-greeting">Signed in as <strong>{{ platform.user?.name || platform.user?.email }}</strong></span>
+      <button type="button" class="btn-ghost" (click)="platform.logout()" title="Log out">Log out ↪</button>
+    </div>
+  </header>
+
+  <div class="setup-layout">
+    <aside class="setup-story">
+      <span class="section-kicker">YOUR BUSINESS SETUP</span>
+      <h1>Give your business a place to <em>grow.</em></h1>
+      <p class="story-desc">
+        Tell us about your business so your AI Marketing Team can generate accurate strategies, tailored social campaigns, and actionable sales insights.
+      </p>
+
+      <div class="setup-highlights">
+        <div class="highlight-item">
+          <span class="highlight-icon">✦</span>
+          <div>
+            <strong>Tailored AI Campaigns</strong>
+            <small>Generates social copy, hashtags, and posters specific to your industry.</small>
+          </div>
+        </div>
+        <div class="highlight-item">
+          <span class="highlight-icon">↗</span>
+          <div>
+            <strong>Sales & Inventory Intelligence</strong>
+            <small>Tracks trends, spots stock risks, and recommends timely promotions.</small>
+          </div>
+        </div>
+        <div class="highlight-item">
+          <span class="highlight-icon">✿</span>
+          <div>
+            <strong>Multi-Business Support</strong>
+            <small>You can add and manage additional businesses anytime from your dashboard.</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-card-header">
+          <span class="setup-badge">ONBOARDING</span>
+          <span class="setup-secure">🔒 Secure Profile</span>
+        </div>
+        <strong>3-Minute Setup</strong>
+        <p>Complete these 3 sections to activate your dedicated business workspace.</p>
+        <div class="setup-steps-list">
+          <div class="step-check done"><span>1</span> Business Basics</div>
+          <div class="step-check done"><span>2</span> Contact Details</div>
+          <div class="step-check done"><span>3</span> Location Details</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="setup-content">
+      <div class="setup-header">
+        <span class="section-kicker">BUSINESS PROFILE</span>
+        <h2>Let's set up your business workspace</h2>
+        <p>Fill out the details below. You can update any of these settings later.</p>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="setup-form">
+        <!-- Section 1: Business Basics -->
+        <section class="section-container">
+          <div class="section-header">
+            <span class="step-number">01</span>
+            <div class="section-titles">
+              <h3>Business Basics</h3>
+              <p>Identify your company, industry category, and primary communication email.</p>
+            </div>
+          </div>
+
+          <div class="fields-grid">
+            <div class="form-group span-2">
+              <label for="biz-name">
+                Business Name <span class="req">*</span>
+              </label>
+              <input
+                id="biz-name"
+                formControlName="name"
+                type="text"
+                placeholder="e.g. Fresh Bake House"
+                autocomplete="organization"
+                [class.field-invalid]="form.get('name')?.invalid && form.get('name')?.touched"
+              />
+              <span class="field-error" *ngIf="form.get('name')?.invalid && form.get('name')?.touched">
+                Business name is required (at least 2 characters).
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label for="biz-category">
+                Business Category <span class="req">*</span>
+              </label>
+              <select
+                id="biz-category"
+                formControlName="category"
+                [class.field-invalid]="form.get('category')?.invalid && form.get('category')?.touched"
+              >
+                <option value="Bakery">Bakery</option>
+                <option value="Restaurant">Restaurant</option>
+                <option value="Retail">Retail / Shop</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="biz-email">
+                Business Email <span class="req">*</span>
+              </label>
+              <input
+                id="biz-email"
+                formControlName="email"
+                type="email"
+                placeholder="business@example.com"
+                autocomplete="email"
+                [class.field-invalid]="form.get('email')?.invalid && form.get('email')?.touched"
+              />
+              <span class="field-error" *ngIf="form.get('email')?.invalid && form.get('email')?.touched">
+                Please enter a valid email address.
+              </span>
+            </div>
+
+            <div class="form-group span-2">
+              <label for="biz-desc">
+                Description <span class="opt">(optional)</span>
+              </label>
+              <textarea
+                id="biz-desc"
+                formControlName="description"
+                rows="3"
+                placeholder="Briefly describe what your business offers, key specialties, or target audience..."
+              ></textarea>
+              <small class="field-hint">Helps your AI marketing agent write more personalized copy.</small>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 2: Contact Information -->
+        <section class="section-container">
+          <div class="section-header">
+            <span class="step-number">02</span>
+            <div class="section-titles">
+              <h3>Contact Information</h3>
+              <p>How your customers, team, and marketing channels can reach your business.</p>
+            </div>
+          </div>
+
+          <div class="fields-grid">
+            <div class="form-group">
+              <label for="biz-phone">
+                Contact Phone <span class="req">*</span>
+              </label>
+              <input
+                id="biz-phone"
+                formControlName="phone"
+                type="tel"
+                placeholder="+91 98765 43210"
+                autocomplete="tel"
+                [class.field-invalid]="form.get('phone')?.invalid && form.get('phone')?.touched"
+              />
+              <span class="field-error" *ngIf="form.get('phone')?.invalid && form.get('phone')?.touched">
+                Contact phone number is required.
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label for="biz-website">
+                Website <span class="opt">(optional)</span>
+              </label>
+              <input
+                id="biz-website"
+                formControlName="website"
+                type="url"
+                placeholder="https://example.com"
+                autocomplete="url"
+              />
+              <small class="field-hint">Your online store, portfolio, or landing page link.</small>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 3: Business Location -->
+        <section class="section-container">
+          <div class="section-header">
+            <span class="step-number">03</span>
+            <div class="section-titles">
+              <h3>Business Location</h3>
+              <p>Physical headquarters or storefront address for regional marketing campaigns.</p>
+            </div>
+          </div>
+
+          <div class="fields-grid">
+            <div class="form-group span-2">
+              <label for="biz-address">
+                Street Address <span class="req">*</span>
+              </label>
+              <input
+                id="biz-address"
+                formControlName="address"
+                type="text"
+                placeholder="Shop / Unit no., Building name, Street or Area"
+                autocomplete="street-address"
+                [class.field-invalid]="form.get('address')?.invalid && form.get('address')?.touched"
+              />
+              <span class="field-error" *ngIf="form.get('address')?.invalid && form.get('address')?.touched">
+                Street address is required.
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label for="biz-city">
+                City <span class="req">*</span>
+              </label>
+              <input
+                id="biz-city"
+                formControlName="city"
+                type="text"
+                placeholder="e.g. Kolhapur"
+                autocomplete="address-level2"
+                [class.field-invalid]="form.get('city')?.invalid && form.get('city')?.touched"
+              />
+              <span class="field-error" *ngIf="form.get('city')?.invalid && form.get('city')?.touched">
+                City is required.
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label for="biz-state">
+                State <span class="req">*</span>
+              </label>
+              <input
+                id="biz-state"
+                formControlName="state"
+                type="text"
+                placeholder="e.g. Maharashtra"
+                autocomplete="address-level1"
+                [class.field-invalid]="form.get('state')?.invalid && form.get('state')?.touched"
+              />
+              <span class="field-error" *ngIf="form.get('state')?.invalid && form.get('state')?.touched">
+                State is required.
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label for="biz-country">
+                Country <span class="req">*</span>
+              </label>
+              <input
+                id="biz-country"
+                formControlName="country"
+                type="text"
+                placeholder="India"
+                autocomplete="country-name"
+                [class.field-invalid]="form.get('country')?.invalid && form.get('country')?.touched"
+              />
+              <span class="field-error" *ngIf="form.get('country')?.invalid && form.get('country')?.touched">
+                Country is required.
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label for="biz-pincode">
+                PIN Code <span class="req">*</span>
+              </label>
+              <input
+                id="biz-pincode"
+                formControlName="pincode"
+                type="text"
+                placeholder="416001"
+                inputmode="numeric"
+                autocomplete="postal-code"
+                [class.field-invalid]="form.get('pincode')?.invalid && form.get('pincode')?.touched"
+              />
+              <span class="field-error" *ngIf="form.get('pincode')?.invalid && form.get('pincode')?.touched">
+                Postal PIN code is required.
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Submit & Status Area -->
+        <div class="submit-container">
+          <div class="form-alert-error" *ngIf="error">
+            <span class="alert-icon">⚠️</span>
+            <div class="alert-text">{{ error }}</div>
+          </div>
+
+          <button
+            class="btn-submit-workspace"
+            type="submit"
+            [disabled]="loading"
+          >
+            <span class="submit-spinner" *ngIf="loading"></span>
+            <span class="submit-label">{{ loading ? 'Creating business workspace…' : 'Create Business Workspace' }}</span>
+            <span class="submit-arrow" *ngIf="!loading">↗</span>
+          </button>
+
+          <div class="submit-footnote">
+            <span>Fields marked with <b class="req">*</b> are required.</span>
+            <span>You can update and add products immediately after workspace creation.</span>
+          </div>
+        </div>
+      </form>
+    </main>
+  </div>
+</div>

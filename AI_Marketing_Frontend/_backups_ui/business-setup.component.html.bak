@@ -1,0 +1,48 @@
+<div class="business-setup-page">
+  <a class="setup-brand" routerLink="/"><span>✳</span> crumbwise<span class="brand-dot">.</span></a>
+  <div class="setup-layout">
+    <aside class="setup-story">
+      <span class="section-kicker">YOUR BUSINESS</span>
+      <h1>Give your business<br>a place to <em>grow.</em></h1>
+      <p>Share a few details so your AI Marketing Team can understand your business and create more relevant recommendations.</p>
+      <div class="story-note">✦ &nbsp; Your details are saved securely to your account.</div>
+      <div class="setup-progress"><span>BUSINESS PROFILE</span><strong>One-time setup</strong><div><i></i></div><small>You can update your business details later.</small></div>
+    </aside>
+
+    <main class="setup-content">
+      <header class="setup-heading"><span class="section-kicker">BUSINESS SETUP</span><h2>Let's meet your business.</h2><p>Complete the sections below to create your workspace.</p></header>
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <section class="setup-card">
+          <div class="setup-card-heading"><span class="setup-step">01</span><div><h3>Business basics</h3><p>What is your business called and what do you do?</p></div></div>
+          <div class="setup-fields">
+            <label class="field-wide">Business name <b>*</b><input formControlName="name" placeholder="e.g. Fresh Bake House" autocomplete="organization"></label>
+            <label>Business category <b>*</b><select formControlName="category"><option value="Bakery">Bakery</option><option value="Restaurant">Restaurant</option><option value="Retail">Retail / Shop</option><option value="Other">Other</option></select></label>
+            <label>Business email <b>*</b><input formControlName="email" type="email" placeholder="business@example.com" autocomplete="email"></label>
+            <label class="field-wide">Description <span class="optional">(optional)</span><textarea formControlName="description" rows="3" placeholder="Tell us what you sell or what services you provide."></textarea></label>
+          </div>
+        </section>
+
+        <section class="setup-card">
+          <div class="setup-card-heading"><span class="setup-step">02</span><div><h3>Contact information</h3><p>How can customers or your team reach you?</p></div></div>
+          <div class="setup-fields">
+            <label>Contact phone <b>*</b><input formControlName="phone" type="tel" placeholder="+91 98765 43210" autocomplete="tel"></label>
+            <label>Website <span class="optional">(optional)</span><input formControlName="website" type="url" placeholder="https://example.com" autocomplete="url"></label>
+          </div>
+        </section>
+
+        <section class="setup-card">
+          <div class="setup-card-heading"><span class="setup-step">03</span><div><h3>Business location</h3><p>Where is your business based?</p></div></div>
+          <div class="setup-fields">
+            <label class="field-wide">Street address <b>*</b><input formControlName="address" placeholder="Shop / building, street and area" autocomplete="street-address"></label>
+            <label>City <b>*</b><input formControlName="city" placeholder="e.g. Kolhapur" autocomplete="address-level2"></label>
+            <label>State <b>*</b><input formControlName="state" placeholder="e.g. Maharashtra" autocomplete="address-level1"></label>
+            <label>Country <b>*</b><input formControlName="country" placeholder="India" autocomplete="country-name"></label>
+            <label>PIN code <b>*</b><input formControlName="pincode" placeholder="416001" inputmode="numeric" autocomplete="postal-code"></label>
+          </div>
+        </section>
+
+        <div class="setup-submit-area"><p class="form-error" *ngIf="error">{{error}}</p><button class="setup-submit" type="submit" [disabled]="loading">{{loading ? 'Creating workspace…' : 'Create business workspace'}} <span>↗</span></button><small>Fields marked * are required. You can edit these details later.</small></div>
+      </form>
+    </main>
+  </div>
+</div>

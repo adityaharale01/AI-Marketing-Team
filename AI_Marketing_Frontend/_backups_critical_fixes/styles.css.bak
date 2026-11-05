@@ -1,0 +1,634 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap");
+
+/* =========================================================
+   CRUMBWISE GLOBAL STYLES
+   One consistent dashboard-inspired purple/lavender theme
+   ========================================================= */
+
+:root {
+  --app-bg: #f8f7fb;
+  --surface: #ffffff;
+  --surface-soft: #f7f3ff;
+  --primary: #704be4;
+  --primary-hover: #5e3acb;
+  --primary-light: #f0ebff;
+  --primary-text: #805de0;
+  --text-primary: #342a3b;
+  --text-heading: #33273c;
+  --text-secondary: #988ea2;
+  --border: #eeeaf3;
+  --input-bg: #fdfcff;
+  --card-shadow: 0 9px 30px rgba(57, 32, 74, 0.05);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "DM Sans", Arial, sans-serif;
+  background: var(--app-bg);
+  color: var(--text-primary);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+/* =========================================================
+   LANDING PAGE HEADER / FOOTER
+   ========================================================= */
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px max(6vw, 24px);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-heading);
+  text-decoration: none;
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+}
+
+.brand-mark {
+  color: var(--primary);
+  font-size: 29px;
+}
+
+.brand small {
+  display: block;
+  font: 700 7px Arial, sans-serif;
+  letter-spacing: 0.17em;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.brand-dot {
+  color: var(--primary-text);
+}
+
+.site-header nav {
+  display: flex;
+  gap: 29px;
+}
+
+.site-header nav a,
+.login-link {
+  font-size: 11px;
+  text-decoration: none;
+  color: #7e7389;
+}
+
+.site-header nav a:hover,
+.login-link:hover {
+  color: var(--primary);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 16px 20px;
+  border-radius: 8px;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.button-dark,
+.button-terracotta {
+  background: var(--primary);
+  color: #fff;
+}
+
+.button-dark:hover,
+.button-terracotta:hover {
+  background: var(--primary-hover);
+}
+
+.button-small {
+  padding: 12px 16px;
+  font-size: 11px;
+}
+
+.site-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 24px max(6vw, 24px);
+  background: #f0ebff;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.footer-brand {
+  font-size: 20px;
+  color: var(--text-heading);
+}
+
+.footer-brand .brand-mark {
+  font-size: 22px;
+}
+
+/* =========================================================
+   LOGIN / REGISTER / BUSINESS SETUP
+   These pages use the same shared HTML classes.
+   ========================================================= */
+
+.auth-page {
+  min-height: 100vh;
+  padding: 28px clamp(18px, 5vw, 70px) 50px;
+  background: var(--app-bg);
+  color: var(--text-primary);
+}
+
+.auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 35px;
+  color: #352a3d;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  text-decoration: none;
+}
+
+.auth-brand > span:first-child {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 11px;
+  font-size: 21px;
+}
+
+.auth-brand .brand-dot {
+  color: var(--primary-text);
+}
+
+.auth-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 490px);
+  align-items: center;
+  gap: clamp(30px, 7vw, 100px);
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.auth-story {
+  max-width: 550px;
+}
+
+.auth-page .section-kicker {
+  color: #9277ce;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+}
+
+.auth-story h1 {
+  margin: 22px 0;
+  color: var(--text-heading);
+  font-size: clamp(42px, 5.5vw, 70px);
+  font-weight: 750;
+  line-height: 1.08;
+  letter-spacing: -2.5px;
+}
+
+.auth-story h1 em {
+  color: var(--primary-text);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.auth-story > p {
+  max-width: 440px;
+  color: #887d94;
+  font-size: 14px;
+  line-height: 1.9;
+}
+
+.story-note {
+  margin-top: 28px;
+  color: #7957d1;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auth-card {
+  width: 100%;
+  padding: clamp(24px, 4vw, 38px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(57, 32, 74, 0.07);
+}
+
+.auth-card h2 {
+  margin: 12px 0 8px;
+  color: var(--text-heading);
+  font-size: 27px;
+  letter-spacing: -0.8px;
+}
+
+.auth-subtitle {
+  margin: 0 0 25px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.auth-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-card form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #51445d;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.auth-card input,
+.auth-card select {
+  width: 100%;
+  min-height: 43px;
+  padding: 11px 12px;
+  border: 1px solid #e6e0ee;
+  border-radius: 8px;
+  outline: none;
+  background: var(--input-bg);
+  color: #45374f;
+  font-size: 12px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.auth-card input::placeholder {
+  color: #b0a7b9;
+}
+
+.auth-card input:focus,
+.auth-card select:focus {
+  border-color: var(--primary-text);
+  box-shadow: 0 0 0 3px rgba(112, 75, 228, 0.1);
+}
+
+.auth-card .optional {
+  color: #a49aaa;
+  font-weight: 400;
+}
+
+.auth-submit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 46px;
+  margin-top: 3px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.auth-submit:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.auth-submit:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}
+
+.auth-switch {
+  margin: 20px 0 0;
+  color: #887d94;
+  font-size: 11px;
+  text-align: center;
+}
+
+.auth-switch a {
+  color: #7954d8;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.auth-switch a:hover {
+  text-decoration: underline;
+}
+
+.demo-warning {
+  margin: 15px 0 0;
+  color: #a49aaa;
+  font-size: 10px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.auth-card .form-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #f2d6da;
+  border-radius: 8px;
+  background: #fff0f1;
+  color: #a34250;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* =========================================================
+   LANDING PAGE COLOR OVERRIDES
+   The landing component has its own component CSS. These
+   important color-only rules keep its layout unchanged while
+   preventing the old cream/brown palette from showing.
+   ========================================================= */
+
+.hero {
+  background: var(--app-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+.hero h1,
+.section-heading h2 {
+  color: var(--text-heading) !important;
+}
+
+.hero h1 em,
+.section-heading h2 em {
+  color: var(--primary-text) !important;
+}
+
+.eyebrow,
+.hero .section-kicker,
+.features-section .section-kicker {
+  color: #9277ce !important;
+}
+
+.eyebrow span,
+.hero-bottom i {
+  background: var(--primary) !important;
+}
+
+.hero-description,
+.section-heading > p,
+.feature-card > p {
+  color: #887d94 !important;
+}
+
+.button-terracotta,
+.button-dark {
+  background: var(--primary) !important;
+  color: #fff !important;
+}
+
+.button-terracotta:hover,
+.button-dark:hover {
+  background: var(--primary-hover) !important;
+}
+
+.text-link,
+.circle-link {
+  color: var(--primary) !important;
+}
+
+.avatar-stack span {
+  border-color: var(--app-bg) !important;
+  background: #eee7ff !important;
+}
+
+.hero-proof p {
+  color: #51445d !important;
+}
+
+.hero-proof p span,
+.image-note small,
+.sales-card > small {
+  color: var(--text-secondary) !important;
+}
+
+.image-frame {
+  background: #eee7ff !important;
+}
+
+.image-note {
+  background: rgba(255, 255, 255, 0.95) !important;
+}
+
+.image-note > span {
+  color: var(--primary) !important;
+}
+
+.floating-card {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 18px 50px rgba(57, 32, 74, 0.08) !important;
+}
+
+.mini-bars i,
+.chart-line i {
+  background: var(--primary-text) !important;
+}
+
+.mini-bars i:nth-child(even) {
+  background: #c9baf8 !important;
+}
+
+.floating-sticker {
+  background: #e5ddff !important;
+  color: #573a9c !important;
+}
+
+.hero-bottom {
+  color: var(--text-secondary) !important;
+  border-color: var(--border) !important;
+}
+
+.intro-strip {
+  background: #eee9ff !important;
+  color: var(--text-primary) !important;
+}
+
+.circle-link {
+  border-color: #c9baf8 !important;
+}
+
+.features-section {
+  background: var(--surface) !important;
+}
+
+.feature-card {
+  border: 1px solid var(--border) !important;
+}
+
+.feature-analytics,
+.feature-ai,
+.feature-promo {
+  background: var(--surface-soft) !important;
+}
+
+.feature-icon {
+  border-color: #d8cdf9 !important;
+  color: var(--primary) !important;
+}
+
+.feature-number,
+.feature-visual span {
+  color: #9277ce !important;
+}
+
+.feature-visual {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+.chat-preview {
+  background: #f6f2ff !important;
+}
+
+.chat-preview > span {
+  background: var(--primary) !important;
+}
+
+.chat-preview small {
+  color: #9277ce !important;
+}
+
+.promo-pills span {
+  background: var(--surface-soft) !important;
+  border-color: #e6defa !important;
+  color: #7957d1 !important;
+}
+
+.cta-section {
+  background: linear-gradient(110deg, #49316f, var(--primary)) !important;
+  color: #fff !important;
+}
+
+.cta-spark,
+.cta-section h2 em,
+.cta-section .section-kicker {
+  color: #e0d5ff !important;
+}
+
+.cta-section h2 {
+  color: #fff !important;
+}
+
+.cta-section > p,
+.cta-section > small {
+  color: #e5dcf7 !important;
+}
+
+.button-cream {
+  background: #fff !important;
+  color: var(--primary) !important;
+}
+
+.button-cream:hover {
+  background: var(--primary-light) !important;
+}
+
+/* =========================================================
+   RESPONSIVE RULES
+   ========================================================= */
+
+@media (max-width: 760px) {
+  .auth-page {
+    padding: 20px 16px 35px;
+  }
+
+  .auth-brand {
+    margin-bottom: 25px;
+  }
+
+  .auth-layout {
+    grid-template-columns: 1fr;
+    gap: 25px;
+    max-width: 520px;
+  }
+
+  .auth-story h1 {
+    font-size: clamp(38px, 10vw, 54px);
+    letter-spacing: -1.5px;
+  }
+
+  .auth-story > p {
+    font-size: 13px;
+  }
+
+  .story-note {
+    margin-top: 18px;
+  }
+
+  .auth-card {
+    padding: 24px 20px;
+  }
+}
+
+@media (max-width: 560px) {
+  .site-header nav {
+    display: none;
+  }
+
+  .site-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .header-actions {
+    gap: 10px;
+  }
+}
+
+.auth-page {
+  background: #f0ebff !important;
+}

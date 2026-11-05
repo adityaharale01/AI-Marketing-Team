@@ -1,20 +1,46 @@
 <div class="marketing-shell">
-  <aside class="marketing-sidebar">
-    <a class="brand" routerLink="/dashboard"
+  <!-- Mobile Navigation Header (Visible only on mobile/tablet) -->
+  <header class="mobile-topbar">
+    <button type="button" class="btn-hamburger" (click)="toggleMobileMenu()" aria-label="Toggle navigation menu">
+      <span class="hamburger-line"></span>
+      <span class="hamburger-line"></span>
+      <span class="hamburger-line"></span>
+    </button>
+    <a class="mobile-brand" routerLink="/dashboard" (click)="closeMobileMenu()">
+      <span class="brand-symbol">✳</span>
+      <span>crumbwise<small class="brand-dot">.</small></span>
+    </a>
+    <div class="mobile-biz-chip" *ngIf="platform.activeBusiness">
+      <span class="chip-avatar">✿</span>
+      <span class="chip-name">{{ platform.activeBusiness.name }}</span>
+    </div>
+  </header>
+
+  <!-- Mobile Backdrop Overlay -->
+  <div class="mobile-drawer-overlay" *ngIf="mobileMenuOpen" (click)="closeMobileMenu()" aria-hidden="true"></div>
+
+  <aside class="marketing-sidebar" [class.drawer-open]="mobileMenuOpen">
+    <div class="mobile-sidebar-head">
+      <span class="drawer-heading">NAVIGATION</span>
+      <button type="button" class="btn-close-drawer" (click)="closeMobileMenu()" aria-label="Close menu">✕</button>
+    </div>
+
+    <a class="brand" routerLink="/dashboard" (click)="closeMobileMenu()"
       ><span class="brand-mark">✳</span
       ><span
         >crumbwise<span class="dot">.</span
         ><small>AI MARKETING TEAM</small></span
       ></a
     >
-    <div class="nav-caption">WORKSPACE</div>
-    <a class="nav-link" routerLink="/dashboard">▦ &nbsp; Dashboard</a>
-    <a class="nav-link" routerLink="/workspace"
-      >▤ &nbsp; Products & campaigns</a
-    >
-    <a class="nav-link active" routerLink="/marketing-agent"
-      >✧ &nbsp; Marketing Agent</a
-    >
+    <div class="nav-caption">OVERVIEW</div>
+    <a class="nav-link" routerLink="/dashboard" (click)="closeMobileMenu()">▦ &nbsp; Dashboard</a>
+    <div class="nav-caption nav-group-caption">MANAGE BUSINESS</div>
+    <a class="nav-link" routerLink="/workspace" [queryParams]="{ module: 'products' }" (click)="closeMobileMenu()">▤ &nbsp; Products & inventory</a>
+    <a class="nav-link" routerLink="/workspace" [queryParams]="{ module: 'sales' }" (click)="closeMobileMenu()">↗ &nbsp; Sales</a>
+    <a class="nav-link" routerLink="/workspace" [queryParams]="{ module: 'campaigns' }" (click)="closeMobileMenu()">♡ &nbsp; Campaigns</a>
+    <div class="nav-caption nav-group-caption">AI TEAM</div>
+    <a class="nav-link" routerLink="/dashboard" fragment="assistant" (click)="closeMobileMenu()">✳ &nbsp; Business AI Agent</a>
+    <a class="nav-link active" routerLink="/marketing-agent" (click)="closeMobileMenu()">✧ &nbsp; Marketing Agent</a>
     <div class="sidebar-note">
       <span>✦</span><strong>From idea to campaign.</strong>
       <p>Plan, create, review and demo-publish in one place.</p>
@@ -27,7 +53,7 @@
           platform.activeBusiness?.name || "No business selected"
         }}</small>
       </div>
-      <button (click)="platform.logout()" title="Log out">↪</button>
+      <button (click)="platform.logout()" title="Log out" type="button">↪</button>
     </div>
   </aside>
 
